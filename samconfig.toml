@@ -1,0 +1,16 @@
+version = 0.1
+
+[default.global.parameters]
+stack_name = "stack-trv2-dev-backend"
+
+[default.build.parameters]
+cached = true
+
+[default.deploy.parameters]
+region = "ap-northeast-1"
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
+s3_prefix = "stack-trv2-dev-backend"
+confirm_changeset = false
+fail_on_empty_changeset = false
+parameter_overrides = "Environment=dev"
