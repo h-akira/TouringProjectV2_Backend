@@ -161,3 +161,11 @@ def test_handler_reads_sqs_records(aws, monkeypatch):
     monkeypatch.setattr(worker, "DEFAULT_STEPS", rec.steps())
     worker.handler({"Records": [{"body": f'{{"userName": "{USER}", "askId": "{ASK}"}}'}]}, None)
     assert store.get_ask(USER, ASK)["status"] == "completed"
+
+
+def test_unexpected_agent_exception_marks_failed(aws):
+    put(aws, audio=False)
+    rec = Recorder(agent_error=RuntimeError("stream reset"))
+    worker.process(USER, ASK, rec.steps())
+    item = store.get_ask(USER, ASK)
+    assert item["status"] == "failed" and item["error"] == "agent_failed"

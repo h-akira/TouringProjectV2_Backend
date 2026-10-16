@@ -8,7 +8,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 
 from lib import clients
 
@@ -90,4 +90,7 @@ def invoke(
                 sleep(0.5 * (attempt + 1))
                 continue
             raise AgentError(code) from error
+        except BotoCoreError as error:
+            # Timeouts and broken streams: not retried, the question may already be in the conversation.
+            raise AgentError(type(error).__name__) from error
     raise AgentError("no attempts")

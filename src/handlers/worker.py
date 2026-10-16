@@ -53,6 +53,14 @@ def process(user: str, ask_id: str, steps: Steps) -> None:
     if item is None:
         log({"event": "ask_skipped", "askId": ask_id})
         return
+    try:
+        _run(user, ask_id, item, steps)
+    except Exception as error:  # noqa: BLE001 - never leave a claimed ask in processing
+        log({"event": "ask_crashed", "askId": ask_id, "error": type(error).__name__})
+        store.update_ask(user, ask_id, {"status": "failed", "error": "agent_failed"})
+
+
+def _run(user: str, ask_id: str, item: dict, steps: Steps) -> None:
     timings = dict(item.get("timings") or {})
     outcome: dict = {}
 
@@ -93,9 +101,10 @@ def process(user: str, ask_id: str, steps: Steps) -> None:
 
     try:
         reply = steps.invoke_agent(prompt, agent_location(location, heading), item["conversationId"])
-    except AgentError as error:
+    except Exception as error:  # noqa: BLE001 - AgentError or anything unexpected from the call
         mark("agentDoneAt")
-        log({"event": "agent_error", "askId": ask_id, "error": str(error)})
+        reason = str(error) if isinstance(error, AgentError) else type(error).__name__
+        log({"event": "agent_error", "askId": ask_id, "error": reason})
         finish("failed", "agent_failed", **facts)
         return
     if reply.first_event_at is not None:

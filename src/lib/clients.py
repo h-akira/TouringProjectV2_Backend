@@ -46,11 +46,13 @@ def geo() -> Any:
 
 @lru_cache(maxsize=None)
 def agentcore() -> Any:
-    # The agent lives in another region; its stream can take a while, so allow a long read.
+    # The agent lives in another region; its stream can take a while, so allow a long read,
+    # but never let botocore resend on its own: a second call would repeat the question in
+    # the conversation, and two long reads would outlive the worker's 120 s timeout.
     return boto3.client(
         "bedrock-agentcore",
         region_name=os.environ.get("AGENT_REGION", "us-east-1"),
-        config=Config(read_timeout=110, retries={"max_attempts": 1}),
+        config=Config(read_timeout=90, retries={"total_max_attempts": 1}),
     )
 
 

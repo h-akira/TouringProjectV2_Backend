@@ -93,3 +93,21 @@ def test_invoke_gives_up_after_attempts_and_on_other_errors():
     denied = ClientError({"Error": {"Code": "AccessDeniedException", "Message": "no"}}, "InvokeAgentRuntime")
     with pytest.raises(AgentError, match="AccessDeniedException"):
         invoke("P", None, "s" * 36, client=FakeClient([denied]), sleep=lambda s: None)
+
+
+def test_transport_errors_become_agent_errors():
+    from botocore.exceptions import ReadTimeoutError
+
+    timeout = ReadTimeoutError(endpoint_url="https://example.invalid")
+    with pytest.raises(AgentError, match="ReadTimeoutError"):
+        invoke("P", None, "s" * 36, client=FakeClient([timeout]), sleep=lambda s: None)
+
+
+def test_agentcore_client_never_retries_on_its_own(monkeypatch):
+    from lib import clients
+
+    clients.reset()
+    config = clients.agentcore().meta.config
+    assert config.retries["total_max_attempts"] == 1
+    assert config.read_timeout <= 90
+    clients.reset()
