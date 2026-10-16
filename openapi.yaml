@@ -1,0 +1,211 @@
+openapi: 3.0.3
+info:
+  title: TouringProjectV2 Backend API
+  version: 1.0.0
+  description: >
+    App ↔ Backend の約束の正本（親リポジトリ docs/07_units_contracts.md UC-4・UC-5）。
+    /health 以外は x-api-key（接続キー）と x-user-name（英小文字と数字の3〜20文字）が要る。
+servers:
+  - url: https://{apiId}.execute-api.ap-northeast-1.amazonaws.com/Prod
+    variables:
+      apiId:
+        default: example
+security:
+  - ApiKey: []
+paths:
+  /health:
+    get:
+      summary: 死活の確認
+      security: []
+      responses:
+        "200":
+          description: 動いている
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+  /asks:
+    post:
+      summary: 質問を受け付ける（回答は GET /asks/{askId} で取りに行く）
+      parameters:
+        - $ref: "#/components/parameters/UserName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AskRequest"
+      responses:
+        "202":
+          description: 受け付けた
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AskAccepted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: 接続キーが無効
+        "429":
+          description: 流量の制限
+  /asks/{askId}:
+    get:
+      summary: 質問の状態と回答
+      parameters:
+        - $ref: "#/components/parameters/UserName"
+        - name: askId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: 状態
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AskResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: 接続キーが無効
+        "404":
+          description: 無い（他のユーザーの質問も無いものとして扱う）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    enum: [not_found]
+components:
+  securitySchemes:
+    ApiKey:
+      type: apiKey
+      in: header
+      name: x-api-key
+  parameters:
+    UserName:
+      name: x-user-name
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-z0-9]{3,20}$"
+  responses:
+    BadRequest:
+      description: 入力が不正
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error, message]
+            properties:
+              error:
+                type: string
+                enum: [bad_request]
+              message:
+                type: string
+  schemas:
+    Point:
+      type: object
+      required: [latitude, longitude]
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+    AskRequest:
+      type: object
+      description: audio と text はどちらか一方。不正な location・headingSample は無いものとして扱う。
+      properties:
+        audio:
+          type: string
+          format: byte
+          description: PCM（16kHz・モノラル・16bit リトルエンディアン）の base64。0.25〜60秒。
+        text:
+          type: string
+          minLength: 1
+          maxLength: 500
+        location:
+          allOf:
+            - $ref: "#/components/schemas/Point"
+          nullable: true
+        headingSample:
+          nullable: true
+          description: 方位の材料。少し前の位置と、その時刻（タイムゾーン付き）。2分より古いものは使わない。
+          allOf:
+            - $ref: "#/components/schemas/Point"
+            - type: object
+              required: [at]
+              properties:
+                at:
+                  type: string
+                  format: date-time
+        conversationId:
+          type: string
+          format: uuid
+          nullable: true
+          description: 会話を続けるときだけ送る（小文字）。
+    AskAccepted:
+      type: object
+      required: [askId, conversationId, conversationExpiresAt]
+      properties:
+        askId:
+          type: string
+          format: uuid
+        conversationId:
+          type: string
+          format: uuid
+        conversationExpiresAt:
+          type: string
+          format: date-time
+          description: この時刻を過ぎたら App は conversationId を捨てる。
+    AskResult:
+      type: object
+      required: [askId, status, audio, timings]
+      properties:
+        askId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [processing, completed, failed]
+        transcript:
+          type: string
+          nullable: true
+        answer:
+          type: string
+          nullable: true
+          description: tts_failed のときも入る（端末の音声合成で読む）。
+        audio:
+          type: array
+          description: 読み上げ音声。seq の順に鳴らす。URL は10分有効。
+          items:
+            type: object
+            required: [seq, url]
+            properties:
+              seq:
+                type: integer
+              url:
+                type: string
+                format: uri
+        error:
+          type: string
+          nullable: true
+          enum: [no_speech, transcribe_failed, agent_failed, tts_failed, null]
+        timings:
+          type: object
+          additionalProperties:
+            type: string
+            format: date-time

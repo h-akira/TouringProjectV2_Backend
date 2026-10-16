@@ -1,0 +1,250 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: TouringProjectV2 backend (slice 1) - accept asks, process them through the agent, return answers.
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+  AgentRuntimeArn:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /trv2/dev/agent-runtime-arn
+    Description: Name of the SSM parameter (Tokyo) holding the agent runtime ARN; written by the Agent deploy.
+  AgentRegion:
+    Type: String
+    Default: us-east-1
+  ConversationResetParameter:
+    Type: String
+    Default: /trv2/dev/conversation-reset-minutes
+  DailyQuota:
+    Type: Number
+    Default: 3000
+    Description: Requests per key per day. One question is one POST plus up to about 70 polls.
+  ThrottleRate:
+    Type: Number
+    Default: 5
+  ThrottleBurst:
+    Type: Number
+    Default: 10
+
+Globals:
+  Function:
+    Runtime: python3.13
+    Architectures: [arm64]
+    CodeUri: src/
+    MemorySize: 256
+    Timeout: 10
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref RecordsTable
+        AUDIO_BUCKET: !Ref AudioBucket
+
+Resources:
+  RestApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub apigw-trv2-${Environment}-main
+      StageName: Prod
+      Auth:
+        ApiKeyRequired: true
+
+  HealthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub lambda-trv2-${Environment}-health
+      Handler: handlers.health.handler
+      Events:
+        Health:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /health
+            Method: get
+            Auth:
+              ApiKeyRequired: false
+
+  AskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub lambda-trv2-${Environment}-ask
+      Handler: handlers.ask.handler
+      MemorySize: 512
+      Timeout: 15
+      Environment:
+        Variables:
+          QUEUE_URL: !Ref AskQueue
+          CONVERSATION_RESET_PARAMETER: !Ref ConversationResetParameter
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RecordsTable
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt AskQueue.QueueName
+        - Statement:
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub ${AudioBucket.Arn}/audio/*
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${ConversationResetParameter}
+      Events:
+        Ask:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /asks
+            Method: post
+
+  ResultFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub lambda-trv2-${Environment}-result
+      Handler: handlers.result.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RecordsTable
+        - Statement:
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub ${AudioBucket.Arn}/answers/*
+      Events:
+        Result:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /asks/{askId}
+            Method: get
+
+  WorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub lambda-trv2-${Environment}-worker
+      Handler: handlers.worker.handler
+      MemorySize: 512
+      Timeout: 120
+      Environment:
+        Variables:
+          AGENT_ARN: !Ref AgentRuntimeArn
+          AGENT_REGION: !Ref AgentRegion
+          GEO_REGION: !Ref AWS::Region
+          POLLY_VOICE_ID: Kazuha
+          POLLY_VOLUME: "+6dB"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RecordsTable
+        - Statement:
+            - Effect: Allow
+              Action: [s3:GetObject, s3:DeleteObject]
+              Resource: !Sub ${AudioBucket.Arn}/audio/*
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub ${AudioBucket.Arn}/answers/*
+            - Effect: Allow
+              Action: transcribe:StartStreamTranscription
+              Resource: "*"
+            - Effect: Allow
+              Action: geo-places:ReverseGeocode
+              Resource: "*"
+            - Effect: Allow
+              Action: polly:SynthesizeSpeech
+              Resource: "*"
+            - Effect: Allow
+              Action: bedrock-agentcore:InvokeAgentRuntime
+              Resource:
+                - !Ref AgentRuntimeArn
+                - !Sub ${AgentRuntimeArn}/*
+      Events:
+        Queue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt AskQueue.Arn
+            BatchSize: 1
+
+  AskQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub sqs-trv2-${Environment}-ask
+      VisibilityTimeout: 180
+      MessageRetentionPeriod: 3600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt AskDeadLetterQueue.Arn
+        maxReceiveCount: 2
+
+  AskDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub sqs-trv2-${Environment}-ask-dlq
+      MessageRetentionPeriod: 1209600
+
+  RecordsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub dynamodb-trv2-${Environment}-records
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  AudioBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub s3-trv2-${Environment}-audio-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteAudioAfterOneDay
+            Status: Enabled
+            ExpirationInDays: 1
+
+  ApiUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: RestApiProdStage
+    Properties:
+      UsagePlanName: !Sub usageplan-trv2-${Environment}-main
+      ApiStages:
+        - ApiId: !Ref RestApi
+          Stage: Prod
+      Quota:
+        Limit: !Ref DailyQuota
+        Period: DAY
+      Throttle:
+        RateLimit: !Ref ThrottleRate
+        BurstLimit: !Ref ThrottleBurst
+
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    DependsOn: RestApiProdStage
+    Properties:
+      Name: !Sub apikey-trv2-${Environment}-main
+      Description: The shared connection key typed into the App. Read its value with the command in README.md.
+      Enabled: true
+
+  ApiUsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref ApiUsagePlan
+
+Outputs:
+  ApiUrl:
+    Value: !Sub https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod
+  ApiKeyId:
+    Value: !Ref ApiKey
