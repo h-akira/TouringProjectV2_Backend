@@ -39,6 +39,10 @@ def test_heading_none_when_barely_moved():
     assert geo.heading_degrees(HERE, sample(near, 10), NOW) is None
 
 
-@pytest.mark.parametrize("seconds_ago", [geo.MAX_SAMPLE_AGE_SECONDS + 1, -5])
+@pytest.mark.parametrize("seconds_ago", [geo.MAX_SAMPLE_AGE_SECONDS + 1, -(geo.MAX_FUTURE_SKEW_SECONDS + 10)])
 def test_heading_none_when_sample_is_stale_or_in_future(seconds_ago):
     assert geo.heading_degrees(HERE, sample(SOUTH_60M, seconds_ago), NOW) is None
+
+
+def test_small_device_clock_skew_is_tolerated():
+    assert geo.heading_degrees(HERE, sample(SOUTH_60M, -5), NOW) == pytest.approx(0, abs=0.5)
