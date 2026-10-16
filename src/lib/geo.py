@@ -9,6 +9,7 @@ from handlers.common import parse_iso
 
 MIN_DISTANCE_METERS = 5.0  # below this, GPS noise dominates the bearing
 MAX_SAMPLE_AGE_SECONDS = 120  # an older sample says little about the current direction
+MAX_FUTURE_SKEW_SECONDS = 30  # the sample time comes from the phone's clock, which may run a little ahead
 _EARTH_RADIUS_METERS = 6_371_000.0
 _COMPASS = ("北", "北北東", "北東", "東北東", "東", "東南東", "南東", "南南東",
             "南", "南南西", "南西", "西南西", "西", "西北西", "北西", "北北西")
@@ -39,7 +40,7 @@ def heading_degrees(location: Optional[dict], sample: Optional[dict], received_a
     if location is None or sample is None:
         return None
     age = (received_at - parse_iso(sample["at"])).total_seconds()
-    if age < 0 or age > MAX_SAMPLE_AGE_SECONDS:
+    if age < -MAX_FUTURE_SKEW_SECONDS or age > MAX_SAMPLE_AGE_SECONDS:
         return None
     if haversine_meters(sample, location) < MIN_DISTANCE_METERS:
         return None
