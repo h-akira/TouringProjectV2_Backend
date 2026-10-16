@@ -1,0 +1,2019 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Touring Assistant 画面モック</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+/* ===== Design tokens (light) ===== */
+:root {
+  --page-bg: #e9ecf0;
+  --page-text: #1d2127;
+  --page-muted: #5d6672;
+  --page-line: #d3d8df;
+  --page-panel: #ffffff;
+
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --surface-2: #eceef2;
+  --text: #15181d;
+  --muted: #5f6772;
+  --line: #e1e4e9;
+  --accent: #e8600f;
+  --accent-text: #ffffff;
+  --accent-soft: #fde9dc;
+  --rec: #d42a2a;
+  --wait: #1f4fd1;
+  --speak: #13804a;
+  --warn-bg: #ffe08a;
+  --warn-text: #3d2c00;
+  --danger: #c62828;
+  --memo: #0d8a7a;
+  --ok: #13804a;
+  --map-filter: none;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 14px rgba(0,0,0,.06);
+}
+/* ===== Design tokens (dark) ===== */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page-bg: #0b0d10;
+    --page-text: #e7eaee;
+    --page-muted: #98a1ac;
+    --page-line: #262b32;
+    --page-panel: #14171b;
+
+    --bg: #0f1114;
+    --surface: #1a1d22;
+    --surface-2: #23272d;
+    --text: #eef0f3;
+    --muted: #9ca5b0;
+    --line: #2c3138;
+    --accent: #ff7a2e;
+    --accent-text: #1a0d03;
+    --accent-soft: #3a2416;
+    --rec: #e03b3b;
+    --wait: #2f5ee6;
+    --speak: #1b9156;
+    --warn-bg: #ffd25e;
+    --warn-text: #2b1f00;
+    --danger: #ff6b6b;
+  --memo: #1fae9a;
+    --ok: #4cc38a;
+    --map-filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9);
+    --shadow: 0 1px 3px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"] {
+  --page-bg: #0b0d10;
+  --page-text: #e7eaee;
+  --page-muted: #98a1ac;
+  --page-line: #262b32;
+  --page-panel: #14171b;
+
+  --bg: #0f1114;
+  --surface: #1a1d22;
+  --surface-2: #23272d;
+  --text: #eef0f3;
+  --muted: #9ca5b0;
+  --line: #2c3138;
+  --accent: #ff7a2e;
+  --accent-text: #1a0d03;
+  --accent-soft: #3a2416;
+  --rec: #e03b3b;
+  --wait: #2f5ee6;
+  --speak: #1b9156;
+  --warn-bg: #ffd25e;
+  --warn-text: #2b1f00;
+  --danger: #ff6b6b;
+  --memo: #1fae9a;
+  --ok: #4cc38a;
+  --map-filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9);
+  --shadow: 0 1px 3px rgba(0,0,0,.4);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page-bg);
+  color: var(--page-text);
+  font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+}
+button { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+
+/* ===== Page chrome ===== */
+.page-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 14px 20px; border-bottom: 1px solid var(--page-line); background: var(--page-panel);
+}
+.page-head h1 { margin: 0; font-size: 16px; font-weight: 700; }
+.page-head h1 small { font-weight: 400; color: var(--page-muted); margin-left: 8px; }
+.seg { display: inline-flex; border: 1px solid var(--page-line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 6px 12px; cursor: pointer; font-size: 13px; color: var(--page-muted); }
+.seg button[aria-pressed="true"] { background: var(--page-text); color: var(--page-panel); }
+
+.layout {
+  display: grid; grid-template-columns: 250px minmax(0, 1fr) 380px; gap: 0;
+  min-height: calc(100vh - 58px);
+}
+.screen-nav { border-right: 1px solid var(--page-line); padding: 14px 10px; background: var(--page-panel); overflow-y: auto; }
+.screen-nav h2 { font-size: 11px; letter-spacing: .06em; color: var(--page-muted); margin: 14px 8px 6px; font-weight: 600; }
+.screen-nav h2:first-child { margin-top: 0; }
+.screen-nav button {
+  display: flex; gap: 8px; width: 100%; text-align: left; border: 0; background: transparent;
+  padding: 7px 8px; border-radius: 7px; cursor: pointer; font-size: 13px;
+}
+.screen-nav button .sid { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--page-muted); min-width: 44px; padding-top: 1px; }
+.screen-nav button:hover { background: var(--page-bg); }
+.screen-nav button[aria-current="true"] { background: var(--page-text); color: var(--page-panel); }
+.screen-nav button[aria-current="true"] .sid { color: inherit; opacity: .7; }
+
+.stage { display: flex; flex-direction: column; align-items: center; padding: 18px 16px 28px; gap: 12px; min-width: 0; }
+.state-bar { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: 30px; align-items: center; }
+.state-bar .lbl { font-size: 12px; color: var(--page-muted); margin-right: 2px; }
+.chip {
+  border: 1px solid var(--page-line); background: var(--page-panel); border-radius: 999px;
+  padding: 4px 12px; font-size: 12px; cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--page-text); color: var(--page-panel); border-color: var(--page-text); }
+
+.spec { border-left: 1px solid var(--page-line); background: var(--page-panel); padding: 18px 20px 40px; overflow-y: auto; }
+.spec .sid { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--page-muted); }
+.spec h2 { margin: 2px 0 4px; font-size: 18px; }
+.spec .role { color: var(--page-muted); margin: 0 0 14px; }
+.spec h3 { font-size: 13px; margin: 18px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--page-line); }
+.spec ul { margin: 0; padding-left: 18px; }
+.spec li { margin: 3px 0; }
+.spec table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin: 4px 0; }
+.spec th, .spec td { border: 1px solid var(--page-line); padding: 4px 6px; text-align: left; vertical-align: top; }
+.spec th { background: var(--page-bg); font-weight: 600; }
+.spec .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--page-line); color: var(--page-muted); margin-right: 4px; }
+
+@media (max-width: 1180px) {
+  .layout { grid-template-columns: 220px minmax(0, 1fr); }
+  .spec { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--page-line); }
+}
+@media (max-width: 760px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .screen-nav { border-right: 0; border-bottom: 1px solid var(--page-line); display: flex; overflow-x: auto; gap: 4px; padding: 8px 16px; }
+  .screen-nav h2 { display: none; }
+  .screen-nav button { width: auto; white-space: nowrap; flex: 0 0 auto; }
+  .screen-nav button .sid { min-width: 0; }
+  .page-head { padding: 12px 16px; }
+  .stage { padding: 14px 16px 24px; }
+  .spec { padding: 16px; }
+}
+
+/* ===== Phone ===== */
+.phone {
+  width: min(380px, 100%); height: 800px; border-radius: 46px; padding: 10px;
+  background: #111; box-shadow: 0 20px 50px rgba(0,0,0,.25), inset 0 0 0 2px #333;
+  flex: 0 0 auto;
+}
+.device {
+  position: relative; width: 100%; height: 100%; border-radius: 36px; overflow: hidden;
+  background: var(--bg); color: var(--text); display: flex; flex-direction: column;
+}
+.statusbar {
+  height: 34px; flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; font-size: 13px; font-weight: 600; position: relative; z-index: 5;
+}
+.statusbar .cam { position: absolute; left: 50%; top: 9px; width: 14px; height: 14px; border-radius: 50%; background: #000; transform: translateX(-50%); }
+.statusbar .icons { display: flex; gap: 6px; align-items: center; font-size: 11px; }
+.device.fullcolor .statusbar { color: #fff; }
+.viewport { position: relative; flex: 1 1 auto; overflow: hidden; }
+.tabbar {
+  flex: 0 0 auto; height: 64px; display: grid; grid-template-columns: repeat(3, 1fr);
+  background: var(--surface); border-top: 1px solid var(--line);
+}
+.tabbar button {
+  border: 0; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; font-size: 11px; color: var(--muted); cursor: pointer;
+}
+.tabbar button svg { width: 24px; height: 24px; }
+.tabbar button[aria-current="true"] { color: var(--accent); font-weight: 700; }
+.tabbar button[aria-current="true"] .pill { background: var(--accent-soft); }
+.tabbar .pill { padding: 3px 18px; border-radius: 999px; display: flex; }
+.gesture { flex: 0 0 auto; height: 20px; display: flex; align-items: center; justify-content: center; background: var(--surface); }
+.gesture::after { content: ""; width: 110px; height: 4px; border-radius: 4px; background: var(--muted); opacity: .5; }
+.device.fullcolor .gesture { background: transparent; position: absolute; bottom: 0; left: 0; right: 0; }
+.device.fullcolor .gesture::after { background: #fff; }
+
+/* ===== Screens ===== */
+.screen { position: absolute; inset: 0; overflow-y: auto; display: none; flex-direction: column; }
+.screen.active { display: flex; }
+.screen::-webkit-scrollbar { width: 0; }
+.pad { padding: 12px 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+
+.appbar {
+  display: flex; align-items: center; gap: 6px; padding: 6px 8px 6px 4px; min-height: 52px; flex: 0 0 auto;
+  background: var(--bg); position: sticky; top: 0; z-index: 3;
+}
+.appbar h1 { font-size: 18px; margin: 0; flex: 1; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.appbar.home h1 { padding-left: 12px; }
+.iconbtn {
+  width: 44px; height: 44px; border-radius: 50%; border: 0; background: transparent; display: inline-flex;
+  align-items: center; justify-content: center; cursor: pointer; color: var(--text); flex: 0 0 auto;
+}
+.iconbtn:hover { background: var(--surface-2); }
+.iconbtn svg { width: 22px; height: 22px; }
+
+.card { background: var(--surface); border-radius: 18px; padding: 14px; box-shadow: var(--shadow); }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.row { display: flex; align-items: center; gap: 10px; }
+.between { justify-content: space-between; }
+.grow { flex: 1; min-width: 0; }
+
+.btn {
+  border: 0; border-radius: 14px; min-height: 52px; padding: 0 18px; font-size: 16px; font-weight: 700;
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn.block { width: 100%; }
+.btn.primary { background: var(--accent); color: var(--accent-text); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn.tonal { background: var(--surface-2); color: var(--text); }
+.btn.outline { background: transparent; color: var(--text); border: 2px solid var(--line); }
+.btn.danger { background: transparent; color: var(--danger); border: 2px solid var(--line); }
+.btn.danger-fill { background: var(--danger); color: #fff; }
+.btn.sm { min-height: 40px; font-size: 14px; border-radius: 12px; padding: 0 14px; }
+
+.banner {
+  background: var(--warn-bg); color: var(--warn-text); border-radius: 14px; padding: 12px 14px;
+  display: flex; gap: 10px; align-items: flex-start; cursor: pointer; border: 0; text-align: left; width: 100%;
+}
+.banner b { display: block; font-size: 15px; }
+.banner .ico { font-size: 20px; line-height: 1.2; }
+
+/* Home (fixed, no scroll) */
+.screen.home-fixed { overflow: hidden; }
+.home-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 0 16px 12px; }
+.standby { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--line); padding-top: 8px; }
+.standby-ico { font-size: 18px; line-height: 1; }
+.home-body .banner { padding: 8px 12px; align-items: center; }
+.home-body .banner b { display: inline; font-size: 14px; margin-right: 6px; }
+.home-body .banner span:not(.ico) { font-size: 13px; }
+.user-chip {
+  border: 2px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px;
+  padding: 6px 14px; font-family: ui-monospace, Menlo, monospace; font-size: 18px; font-weight: 800; cursor: pointer; letter-spacing: .04em;
+}
+.user-chip.small-chip { font-size: 13px; padding: 4px 10px; font-weight: 700; }
+.small-act { font-size: 20px; background: var(--surface-2); margin-left: 6px; }
+.new-convo .convo-status { font-size: 18px; font-weight: 700; white-space: nowrap; }
+.new-convo .convo-action { font-size: 21px; font-weight: 800; color: var(--accent); }
+.new-convo { flex: 0 1 140px; min-height: 76px; flex-direction: column; gap: 4px; border-radius: 18px; background: var(--surface); }
+.home-body .banner > span:not(.ico) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.home-body .stat b { font-size: 22px; }
+.home-body .trip-card { padding: 12px; gap: 8px; }
+.trip-act { min-height: 48px; padding: 2px 4px; font-size: 12px; flex-direction: column; gap: 0; line-height: 1.2; white-space: nowrap; }
+.trip-act .ti { font-size: 16px; }
+.home-body .stat span { font-size: 10.5px; }
+.home-body .banner { padding: 10px 14px; }
+.trip-card { display: flex; flex-direction: column; gap: 10px; }
+.rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--rec); display: inline-block; animation: blink 1.4s infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.badge { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; }
+.badge.rec { background: color-mix(in srgb, var(--rec) 14%, transparent); color: var(--rec); }
+.badge.off { background: var(--surface-2); color: var(--muted); }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.stat b { display: block; font-size: 19px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stat span { font-size: 11px; color: var(--muted); }
+.minimap { height: 130px; border-radius: 12px; overflow: hidden; background: var(--surface-2); position: relative; cursor: pointer; }
+.minimap .hint { position: absolute; right: 8px; bottom: 8px; z-index: 500; background: var(--surface); color: var(--text); font-size: 11px; padding: 2px 8px; border-radius: 999px; box-shadow: var(--shadow); }
+.heading-row { display: flex; align-items: center; gap: 12px; }
+.compass {
+  width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--line); display: flex; align-items: center; justify-content: center;
+  flex: 0 0 auto; background: var(--surface);
+}
+.compass svg { width: 22px; height: 22px; color: var(--accent); }
+.talk-btn {
+  border: 0; width: 100%; min-height: 128px; border-radius: 24px; background: var(--accent); color: var(--accent-text);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.talk-btn svg { width: 40px; height: 40px; }
+.talk-btn b { font-size: 22px; }
+.talk-btn span { font-size: 12px; opacity: .85; }
+.text-ask summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; font-weight: 600; }
+.text-ask summary::-webkit-details-marker { display: none; }
+.text-ask[open] summary { margin-bottom: 10px; }
+.input, textarea.input {
+  width: 100%; border: 2px solid var(--line); background: var(--bg); color: var(--text);
+  border-radius: 12px; padding: 12px; font: inherit; font-size: 15px;
+}
+.input:focus { outline: none; border-color: var(--accent); }
+.ctx-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.last-answer { cursor: pointer; }
+.last-answer .q { font-weight: 700; margin: 4px 0; }
+.last-answer .a { color: var(--muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Full-colour conversation */
+.convo { color: #fff; padding: 0; }
+.convo[data-state="recording"] { background: var(--rec); }
+.convo[data-state="waiting"] { background: var(--wait); }
+.convo[data-state="speaking"] { background: var(--speak); }
+.convo[data-state="offline"] { background: #5b6470; }
+.convo-main {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 20px 22px; text-align: center; cursor: pointer; border: 0; background: transparent; color: inherit; width: 100%;
+}
+.convo-top { font-size: 12px; opacity: .9; display: flex; gap: 8px; align-items: center; justify-content: center; padding-top: 4px; }
+.convo-title { font-size: 26px; font-weight: 800; }
+.convo-big { font-size: 76px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+.convo-note { font-size: 14px; opacity: .9; }
+.convo-answer { font-size: 19px; line-height: 1.6; text-align: left; display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden; }
+.convo-warn { background: var(--warn-bg); color: var(--warn-text); border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 700; }
+.convo-cancel {
+  margin: 0 18px 34px; min-height: 72px; border-radius: 20px; border: 4px solid #fff; background: rgba(0,0,0,.18);
+  color: #fff; font-size: 20px; font-weight: 800; cursor: pointer;
+}
+.wave { display: flex; gap: 5px; align-items: center; height: 34px; }
+.wave i { width: 6px; border-radius: 3px; background: #fff; animation: wave 1s infinite ease-in-out; }
+.wave i:nth-child(2) { animation-delay: .1s } .wave i:nth-child(3) { animation-delay: .2s } .wave i:nth-child(4) { animation-delay: .3s } .wave i:nth-child(5) { animation-delay: .4s }
+@keyframes wave { 0%,100% { height: 8px } 50% { height: 32px } }
+
+/* Lists */
+.section-title { font-size: 13px; font-weight: 700; color: var(--muted); margin: 6px 4px 0; }
+.list { background: var(--surface); border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); }
+.list-item {
+  display: flex; align-items: center; gap: 12px; padding: 14px; min-height: 60px; width: 100%; border: 0;
+  background: transparent; text-align: left; cursor: pointer; color: var(--text);
+}
+.list-item + .list-item { border-top: 1px solid var(--line); }
+.list-item:hover { background: var(--surface-2); }
+.list-item .t { font-size: 15px; font-weight: 600; }
+.list-item .s { font-size: 12px; color: var(--muted); }
+.list-item .val { font-size: 13px; color: var(--muted); text-align: right; max-width: 45%; }
+.chev { color: var(--muted); flex: 0 0 auto; }
+.chev svg { width: 18px; height: 18px; display: block; }
+.lead-ico { width: 36px; height: 36px; border-radius: 10px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; flex: 0 0 auto; font-size: 18px; }
+
+.trip-item { display: flex; gap: 12px; padding: 12px; cursor: pointer; border: 0; width: 100%; text-align: left; background: var(--surface); color: var(--text); border-radius: 18px; box-shadow: var(--shadow); align-items: center; }
+.thumb { width: 76px; height: 76px; border-radius: 12px; background: var(--surface-2); flex: 0 0 auto; }
+.thumb svg { width: 100%; height: 100%; display: block; }
+.trip-item .t { font-weight: 700; font-size: 15px; }
+.trip-item .s { font-size: 12px; color: var(--muted); }
+.trip-item .m { font-size: 12px; display: flex; gap: 10px; margin-top: 4px; color: var(--muted); }
+.sync-pill { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 10px 14px; border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); border: 0; width: 100%; color: var(--text); cursor: pointer; text-align: left; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
+
+/* Trip detail */
+.map-wrap { position: relative; height: 340px; flex: 0 0 auto; background: var(--surface-2); }
+.map-wrap .map { position: absolute; inset: 0; }
+.map-full-btn {
+  position: absolute; top: 10px; left: 10px; z-index: 600; width: 44px; height: 44px; border: 0; border-radius: 12px;
+  background: var(--surface); color: var(--text); font-size: 22px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.25);
+}
+.screen.has-full { overflow: hidden; }
+.map-wrap.full { position: absolute; inset: 0; height: auto; z-index: 40; }
+.map-toggles { position: absolute; top: 10px; right: 10px; z-index: 600; display: flex; gap: 6px; }
+.map-toggles .map-toggle { position: static; }
+.map-toggle.memo[aria-pressed="true"] { background: var(--memo); color: #fff; }
+.num.memo { background: var(--memo); color: #fff; font-size: 14px; }
+.pin.memo { background: var(--memo); }
+.pin.memo.sel { background: #1f4fd1; }
+.map-toggle {
+  position: absolute; top: 10px; right: 10px; z-index: 600; border: 0; border-radius: 999px; padding: 8px 14px;
+  font-weight: 700; font-size: 13px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.25); background: var(--surface); color: var(--muted);
+}
+.map-toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+.pin-card {
+  position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 600; background: var(--surface); color: var(--text);
+  border-radius: 16px; padding: 12px 14px; box-shadow: 0 6px 20px rgba(0,0,0,.25); cursor: pointer; border: 0; text-align: left;
+}
+.pin-card .q { font-weight: 700; margin: 2px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pin-card .a { font-size: 12px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sheet-body { background: var(--bg); border-radius: 20px 20px 0 0; margin-top: -18px; position: relative; z-index: 2; padding: 10px 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+.grabber { width: 40px; height: 4px; border-radius: 4px; background: var(--line); margin: 0 auto 4px; }
+.tl-item { display: flex; gap: 12px; padding: 12px 14px; border: 0; background: transparent; width: 100%; text-align: left; cursor: pointer; color: var(--text); }
+.tl-item + .tl-item { border-top: 1px solid var(--line); }
+.tl-item:hover { background: var(--surface-2); }
+.num { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--accent-text); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; flex: 0 0 auto; }
+.tl-item .q { font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ctx-sep { font-size: 11px; color: var(--muted); padding: 6px 14px; background: var(--surface-2); display: flex; align-items: center; gap: 6px; }
+.memo-box { background: var(--accent-soft); border-radius: 14px; padding: 12px 14px; white-space: pre-wrap; }
+.memo-box .h { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 2px; }
+
+.seg-tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--surface-2); border-radius: 12px; padding: 4px; gap: 4px; }
+.seg-tabs button { border: 0; border-radius: 9px; min-height: 40px; background: transparent; color: var(--muted); font-weight: 700; cursor: pointer; }
+.seg-tabs button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.pause-sep { font-size: 12px; color: var(--muted); padding: 8px 14px; background: var(--surface-2); display: flex; gap: 6px; align-items: center; }
+.day-sep { font-size: 13px; font-weight: 800; padding: 10px 14px 6px; }
+
+/* Leaflet adjustments */
+.leaflet-container { background: var(--surface-2); font: inherit; }
+.leaflet-tile-pane { filter: var(--map-filter); }
+.leaflet-control-attribution { font-size: 10px; }
+.pin {
+  width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--accent);
+  border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center;
+}
+.pin span { transform: rotate(45deg); color: #fff; font-weight: 800; font-size: 13px; }
+.pin.sel { background: #1f4fd1; width: 36px; height: 36px; }
+.endpoint { width: 16px; height: 16px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.endpoint.s { background: #13804a; } .endpoint.e { background: #15181d; }
+.here { width: 18px; height: 18px; border-radius: 50%; background: #1f6fff; border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(31,111,255,.25); }
+.map-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12px; text-align: center; padding: 10px; }
+
+/* Conversation detail */
+.bubble { border-radius: 18px; padding: 12px 14px; font-size: 15px; line-height: 1.65; }
+.bubble.q { background: var(--accent-soft); border-top-right-radius: 6px; margin-left: 28px; }
+.bubble.a { background: var(--surface); border-top-left-radius: 6px; margin-right: 12px; box-shadow: var(--shadow); }
+.who { font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 2px; }
+.meta-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; }
+.meta-grid dt { color: var(--muted); }
+.meta-grid dd { margin: 0; }
+.audio { display: flex; align-items: center; gap: 10px; }
+.play { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-text); display: flex; align-items: center; justify-content: center; cursor: pointer; flex: 0 0 auto; }
+.play svg { width: 18px; height: 18px; }
+.bar { flex: 1; height: 4px; border-radius: 4px; background: var(--line); }
+
+/* Settings */
+.switch { width: 52px; height: 32px; border-radius: 16px; background: var(--line); position: relative; border: 0; cursor: pointer; flex: 0 0 auto; }
+.switch::after { content: ""; position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.switch[aria-checked="true"] { background: var(--accent); }
+.switch[aria-checked="true"]::after { left: 24px; }
+.radio-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; width: 100%; border: 0; background: transparent; text-align: left; cursor: pointer; color: var(--text); min-height: 56px; }
+.radio-item + .radio-item { border-top: 1px solid var(--line); }
+.radio { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--muted); flex: 0 0 auto; position: relative; }
+.radio.on { border-color: var(--accent); }
+.radio.on::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--accent); }
+.app-ico { width: 36px; height: 36px; border-radius: 10px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 15px; }
+.x-btn { width: 40px; height: 40px; border-radius: 50%; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 18px; flex: 0 0 auto; }
+.x-btn:hover { background: var(--surface-2); }
+.field-label { font-size: 13px; font-weight: 700; margin: 0 0 6px 2px; display: block; }
+.stepper { display: flex; align-items: center; gap: 10px; }
+.stepper .v { font-size: 26px; font-weight: 800; min-width: 80px; text-align: center; font-variant-numeric: tabular-nums; }
+.seg-in { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.seg-in button { border: 2px solid var(--line); background: var(--surface); color: var(--text); border-radius: 12px; min-height: 46px; cursor: pointer; font-weight: 700; font-size: 14px; }
+.seg-in button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.rec-entry { padding: 12px 14px; display: flex; gap: 12px; align-items: flex-start; }
+.rec-entry + .rec-entry { border-top: 1px solid var(--line); }
+.rec-entry .tr { font-size: 13px; margin-top: 2px; }
+.rec-entry .tr.empty { color: var(--danger); }
+.kv { display: flex; justify-content: space-between; gap: 10px; padding: 10px 14px; font-size: 14px; }
+.kv + .kv { border-top: 1px solid var(--line); }
+.kv span:first-child { color: var(--muted); }
+
+/* Setup */
+.steps { display: flex; gap: 6px; }
+.steps i { flex: 1; height: 5px; border-radius: 5px; background: var(--line); }
+.steps i.on { background: var(--accent); }
+.perm { display: flex; gap: 12px; align-items: center; padding: 12px 14px; }
+.perm + .perm { border-top: 1px solid var(--line); }
+.ok-mark { color: var(--ok); font-weight: 800; }
+.big-ico { font-size: 44px; text-align: center; }
+
+/* Overlays (sheet / dialog / toast) */
+.overlay { position: absolute; inset: 0; z-index: 50; display: none; }
+.overlay.show { display: block; }
+.scrim { position: absolute; inset: 0; background: rgba(0,0,0,.45); }
+.sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 26px 26px 0 0;
+  padding: 10px 18px 22px; display: flex; flex-direction: column; gap: 12px;
+}
+.dialog {
+  position: absolute; left: 22px; right: 22px; top: 50%; transform: translateY(-50%); background: var(--surface);
+  border-radius: 24px; padding: 22px 20px 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.dialog h3 { margin: 0; font-size: 19px; }
+.dialog p { margin: 0; color: var(--muted); }
+.dialog .acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+.toast {
+  position: absolute; left: 16px; right: 16px; bottom: 76px; z-index: 60; background: var(--text); color: var(--bg);
+  padding: 12px 14px; border-radius: 12px; font-size: 14px; display: none;
+}
+.toast.show { display: block; }
+</style>
+</head>
+<body>
+
+<header class="page-head">
+  <h1>Touring Assistant 画面モック<small>要件定義の付属資料</small></h1>
+  <div class="row" style="gap:8px">
+    <span class="small" style="color:var(--page-muted)">端末の外観</span>
+    <div class="seg" id="themeSeg">
+      <button data-theme-set="auto" aria-pressed="true">端末に追従</button>
+      <button data-theme-set="light" aria-pressed="false">ライト</button>
+      <button data-theme-set="dark" aria-pressed="false">ダーク</button>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="screen-nav" id="screenNav" aria-label="画面一覧"></nav>
+
+  <section class="stage">
+    <div class="state-bar" id="stateBar"></div>
+    <div class="phone">
+      <div class="device" id="device">
+        <div class="statusbar">
+          <span>10:24</span><span class="cam"></span>
+          <span class="icons"><span id="sbRec" title="走行を記録中">●REC</span><span>4G</span><span>82%</span></span>
+        </div>
+
+        <div class="viewport" id="viewport">
+
+          <!-- SC-01 Setup -->
+          <section class="screen" data-id="SC-01">
+            <div class="appbar"><button class="iconbtn" data-act="back" aria-label="戻る"></button><h1>はじめに</h1></div>
+            <div class="pad">
+              <div class="steps" id="setupSteps"><i></i><i></i><i></i><i></i></div>
+
+              <div data-when="perm" class="pad" style="padding:0">
+                <div class="big-ico">📍</div>
+                <h2 style="margin:0;font-size:22px">許可を出してください</h2>
+                <p class="muted" style="margin:0">走行中に触らずに使うため、次の3つが必要です。</p>
+                <div class="list">
+                  <div class="perm"><div class="lead-ico">📍</div><div class="grow"><div class="t" style="font-weight:700">位置情報「常に許可」</div><div class="small muted">アプリが背面でもルートを記録するため</div></div><span class="ok-mark">✓</span></div>
+                  <div class="perm"><div class="lead-ico">🎤</div><div class="grow"><div style="font-weight:700">マイク</div><div class="small muted">声で質問するため</div></div><span class="ok-mark">✓</span></div>
+                  <div class="perm"><div class="lead-ico">🔔</div><div class="grow"><div style="font-weight:700">通知</div><div class="small muted">記録中であることを表示するため</div></div><button class="btn sm primary">許可する</button></div>
+                </div>
+              </div>
+
+              <div data-when="key" class="pad" style="padding:0">
+                <div class="big-ico">🔑</div>
+                <h2 style="margin:0;font-size:22px">接続とユーザー名</h2>
+                <label class="field-label" for="setupKey" style="margin-bottom:0">接続キー</label>
+                <input id="setupKey" class="input" placeholder="配布時に受け取ったキーを貼り付け" value="tk_live_••••••••••••3f9a">
+                <div class="row small" style="color:var(--ok);margin-top:-4px">✓ 接続を確かめました</div>
+                <label class="field-label" for="setupUser" style="margin:6px 0 0">ユーザー名</label>
+                <input id="setupUser" class="input" value="k3x9q2" style="font-family:ui-monospace,Menlo,monospace;font-size:18px">
+                <div class="small muted" style="margin-top:-4px">新しく始めるなら、このままで構いません。<b>以前の端末から引き継ぐときは、そのユーザー名を入力</b>すると記録が戻ります。</div>
+              </div>
+
+              <div data-when="button" class="pad" style="padding:0">
+                <div class="big-ico">🎧</div>
+                <h2 style="margin:0;font-size:22px">インカムのボタン</h2>
+                <p class="muted" style="margin:0">インカムの音声アシスタントのボタンを押してみてください。アプリの選択画面が出たら、このアプリを<b>「常時」</b>で選びます。</p>
+                <div class="card row"><div class="lead-ico">⏳</div><div class="grow"><b>ボタンの押下を待っています…</b><div class="small muted">押されるとここに ✓ が付きます</div></div></div>
+                <details class="card text-ask"><summary>Google が開いてしまうとき <span class="chev">▾</span></summary><div class="small muted">端末の設定で、インカムのボタンの行き先から Google を外す手順を表示します。既定のアシスタントは Google のままで構いません。</div></details>
+              </div>
+
+              <div data-when="return" class="pad" style="padding:0">
+                <div class="big-ico">↩️</div>
+                <h2 style="margin:0;font-size:22px">応答後に戻るアプリ</h2>
+                <p class="muted" style="margin:0">インカムのボタンで質問したら、送った時点でこのアプリへ戻ります（回答は戻ったあとに読み上げます）。ふだん使っているナビを選んでください。</p>
+                <button class="list-item list" data-go="SC-10"><div class="lead-ico">🗺️</div><div class="grow"><div class="t">戻り先を選ぶ</div><div class="s">未設定</div></div><span class="chev" data-chev></span></button>
+                <p class="small muted" style="margin:0">あとから「設定」でも選べます。</p>
+              </div>
+
+              <div style="flex:1"></div>
+              <div class="row">
+                <button class="btn tonal" id="setupPrev">戻る</button>
+                <button class="btn primary grow" id="setupNext">次へ</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- SC-02 Home: fixed layout, never scrolls (it is glanced at while riding) -->
+          <section class="screen home-fixed" data-id="SC-02">
+            <div class="appbar home"><h1><button class="user-chip" data-go="SC-18" aria-label="ユーザー名">👤 k3x9q2</button></h1>
+              <button class="iconbtn small-act" data-go="SC-03" data-state-to="recording" aria-label="押して話す" title="押して話す（テスト用）">🎤</button>
+              <button class="iconbtn small-act" data-overlay="text" aria-label="文字で質問" title="文字で質問">⌨</button>
+            </div>
+            <div class="home-body">
+              <button class="banner" data-when="failed"><span class="ico">⚠</span><span><b>失敗しました</b>回答を取得できませんでした</span></button>
+              <button class="banner" data-when="noreturn" data-go="SC-10"><span class="ico">↩</span><span><b>戻るアプリが未設定です</b>タップして選ぶ</span></button>
+
+              <div class="card trip-card" data-when="riding failed noreturn paused">
+                <div class="row between">
+                  <span class="badge rec" data-when="riding failed noreturn"><span class="rec-dot"></span>走行を記録中</span>
+                  <span class="badge off" data-when="paused">⏸ 一時停止中</span>
+                  <span class="small muted">箱根から御殿場へ</span>
+                </div>
+                <div class="stats">
+                  <div class="stat"><b id="homeElapsed">1:26</b><span>走行時間</span></div>
+                  <div class="stat"><b>52.8<small style="font-size:12px"> km</small></b><span>距離</span></div>
+                  <div class="stat"><b>4</b><span>質問</span></div>
+                </div>
+                <div class="small muted" data-when="paused">一時停止中の質問は走行の記録に入りません（日ごとには残ります）</div>
+                <div class="row" style="gap:8px">
+                  <button class="btn outline sm grow trip-act" data-act="pauseTrip" data-when="riding failed noreturn"><span class="ti">⏸</span>一時停止</button>
+                  <button class="btn primary sm grow trip-act" data-act="resumeTrip" data-when="paused"><span class="ti">▶</span>再開</button>
+                  <button class="btn outline sm grow trip-act" data-act="homeTripMemo"><span class="ti">📝</span>走行メモ</button>
+                  <button class="btn outline sm grow trip-act" data-overlay="SC-04"><span class="ti">■</span>終了</button>
+                </div>
+              </div>
+
+              <div class="card trip-card" data-when="idle">
+                <button class="btn primary block" style="min-height:60px;font-size:18px" data-overlay="SC-17">▶ 走行を開始</button>
+                <div class="small muted">記録しなくても質問できます（日ごとの記録に残ります）</div>
+              </div>
+
+              <div class="card" style="padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+                <div class="heading-row">
+                  <div class="compass"><svg viewBox="0 0 24 24" style="transform:rotate(-45deg)"><path fill="currentColor" d="M12 2l6 18-6-4-6 4z"/></svg></div>
+                  <div class="grow">
+                    <div style="font-weight:700">北西へ走行中</div>
+                    <div class="small muted">右手 北東 ／ 左手 南西</div>
+                  </div>
+                  <button class="btn sm" style="min-height:48px;background:var(--memo);color:#fff;padding:2px 10px;flex-direction:column;gap:0;font-size:12px;line-height:1.2" data-act="newMemo"><span style="font-size:18px">📝</span>地点メモ</button>
+                </div>
+                <div class="standby"><span class="standby-ico">🎧</span><span class="small"><b>インカムのボタンで話せます</b></span></div>
+              </div>
+
+              <button class="btn outline block new-convo" data-overlay="DL-02">
+                <span class="convo-status">💬 10:20 から会話中<span class="muted"> · 3問</span></span>
+                <span class="convo-action">↻ 新しい会話を始める</span>
+                <span class="small muted" style="font-weight:400">10:35 まで質問がなければ自動で区切ります</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- SC-03 Conversation full-colour -->
+          <section class="screen convo" data-id="SC-03" data-state="recording">
+            <div class="convo-top"><span>● 走行を記録中 52.8km</span></div>
+            <button class="convo-main" id="convoMain">
+              <div data-when="recording" style="display:contents">
+                <div class="convo-title">● 話してください</div>
+                <div class="convo-big" id="convoRemain">あと 20</div>
+                <div class="convo-note">インカムのボタンか、この赤い部分を押すと<br>すぐ送信します</div>
+              </div>
+              <div data-when="waiting" style="display:contents">
+                <div class="convo-title">考えています…</div>
+                <div class="convo-big" id="convoWait">0 秒</div>
+                <div class="convo-note">回答を待っています（最初の質問は10秒ほど）</div>
+              </div>
+              <div data-when="speaking" style="display:contents">
+                <div class="convo-title">🔊 回答中</div>
+                <div class="wave"><i></i><i></i><i></i><i></i><i></i></div>
+                <div class="convo-answer">右手側、約1.2キロ先の国道138号沿いにガソリンスタンドがあります。そのまま進めば右側に見えてきます。</div>
+                <div class="convo-note">この緑の部分を押すと読み上げを止めます</div>
+              </div>
+              <div data-when="offline" style="display:contents">
+                <div class="convo-title">📵 通信できません</div>
+                <div class="convo-answer" style="text-align:center">質問できませんでした。<br>この地点を記録しました。</div>
+                <div class="convo-note">何を聞きたかったかは、あとで記録にメモできます</div>
+              </div>
+              <div data-when="micwarn" style="display:contents">
+                <div class="convo-title">● 話してください</div>
+                <div class="convo-big">あと 14</div>
+                <div class="convo-warn">⚠ インカムのマイクに繋がりませんでした。スマホ本体のマイクで録音しています</div>
+              </div>
+            </button>
+            <button class="convo-cancel" id="convoCancel">✕ 送らずにやめる</button>
+          </section>
+
+          <!-- SC-05 Records list -->
+          <section class="screen" data-id="SC-05">
+            <div class="appbar home"><h1>記録</h1><button class="user-chip small-chip" data-go="SC-18" aria-label="ユーザー名" style="margin-right:8px">👤 k3x9q2</button></div>
+            <div class="pad" style="padding-top:0" id="listBody"></div>
+          </section>
+
+          <!-- SC-06 Trip detail -->
+          <section class="screen" data-id="SC-06">
+            <div class="appbar"><button class="iconbtn" data-act="back" aria-label="戻る"></button><h1 id="tripTitle">走行</h1><button class="iconbtn" id="tripMenuBtn" aria-label="メニュー">⋮</button></div>
+            <div class="map-wrap"><div class="map" id="tripMap"></div>
+              <div class="map-toggles"><button class="map-toggle" id="pinToggle" aria-pressed="true">💬 質問</button><button class="map-toggle memo" id="memoToggle" aria-pressed="true">📝 地点メモ</button></div>
+              <button class="map-full-btn" data-fullmap="tripMap" aria-label="地図を全画面で表示">⛶</button>
+              <button class="pin-card" id="pinCard" hidden></button>
+            </div>
+            <div class="sheet-body" id="tripBody"></div>
+          </section>
+
+          <!-- SC-15 Questions of a day -->
+          <section class="screen" data-id="SC-15">
+            <div class="appbar"><button class="iconbtn" data-act="back" aria-label="戻る"></button><h1 id="dayTitle">日ごと</h1></div>
+            <div class="map-wrap"><div class="map" id="dayMap"></div>
+              <button class="map-full-btn" data-fullmap="dayMap" aria-label="地図を全画面で表示">⛶</button>
+              <button class="pin-card" id="dayPinCard" hidden></button>
+            </div>
+            <div class="sheet-body" id="dayBody"></div>
+          </section>
+
+          <!-- SC-07 Conversation detail -->
+          <section class="screen" data-id="SC-07">
+            <div class="appbar"><button class="iconbtn" data-act="back" aria-label="戻る"></button><h1 id="convTitle">会話</h1>
+              <button class="iconbtn" id="convPrev" aria-label="前の会話">‹</button><button class="iconbtn" id="convNext" aria-label="次の会話">›</button></div>
+            <div class="pad" style="padding-top:0" id="convBody"></div>
+          </section>
+
+          <!-- SC-08 Memo edit -->
+          <section class="screen" data-id="SC-08">
+            <div class="appbar"><button class="iconbtn" data-act="back" aria-label="取り消す">✕</button><h1>メモ</h1><button class="btn primary sm" data-act="back" style="margin-right:6px">保存</button></div>
+            <div class="pad" style="padding-top:0;flex:1">
+              <div class="small muted" id="memoTarget">会話 3 · 09:41 箱根町仙石原</div>
+              <textarea class="input" id="memoText" style="flex:1;min-height:300px;resize:none" placeholder="感じたこと、また行きたい場所など"></textarea>
+              <div class="small muted" style="text-align:right">2000字まで</div>
+            </div>
+          </section>
+
+          <!-- SC-19 Point memo -->
+          <section class="screen" data-id="SC-19">
+            <div class="appbar"><button class="iconbtn" data-act="back" aria-label="取り消す">✕</button><h1>地点メモ</h1><button class="btn sm" style="margin-right:6px;background:var(--memo);color:#fff" data-act="back">保存</button></div>
+            <div class="pad" style="padding-top:0;flex:1">
+              <div class="card" style="padding:10px 14px">
+                <div class="small muted" id="pmWhen"></div>
+                <div style="font-weight:700" id="pmWhere"></div>
+                <div class="small muted" id="pmRide"></div>
+              </div>
+              <textarea class="input" id="pmText" style="flex:1;min-height:180px;resize:none" placeholder="気づいたこと、また来たい理由など"></textarea>
+              <button class="btn tonal block" id="pmVoice" style="min-height:56px">🎤 声で入力</button>
+              <div class="small muted" data-when="new edit voice">声は文字にするためだけにサーバーへ送ります。AI には聞きません。</div>
+              <div class="small" data-when="offline" style="color:var(--danger)">通信できないため、声では入力できません。文字で書けば保存できます。</div>
+              <button class="btn danger block" id="pmDelete" data-overlay="DL-01" data-dl="memo">この地点メモを削除</button>
+            </div>
+          </section>
+
+          <!-- SC-09 Settings -->
+          <section class="screen" data-id="SC-09">
+            <div class="appbar home"><h1>設定</h1></div>
+            <div class="pad" style="padding-top:0">
+              <div class="section-title">走行中の動作</div>
+              <div class="list">
+                <button class="list-item" data-go="SC-10"><div class="lead-ico">↩️</div><div class="grow"><div class="t">応答後に戻るアプリ</div></div><span class="val" id="setReturnVal">Google マップ · すぐ戻る</span><span class="chev" data-chev></span></button>
+                <button class="list-item" data-go="SC-16"><div class="lead-ico">🏍️</div><div class="grow"><div class="t">走行の記録</div></div><span class="val" id="setMaxVal">最長 24時間</span><span class="chev" data-chev></span></button>
+                <button class="list-item" data-go="SC-11"><div class="lead-ico">🎙️</div><div class="grow"><div class="t">録音の設定</div></div><span class="val">上限 20秒 · 合図 2秒</span><span class="chev" data-chev></span></button>
+              </div>
+              <div class="section-title">確認</div>
+              <div class="list">
+                <button class="list-item" data-go="SC-12"><div class="lead-ico">🎧</div><div class="grow"><div class="t">録音の確認</div><div class="s">試し録り・送った録音を聞き直す</div></div><span class="chev" data-chev></span></button>
+              </div>
+              <div class="section-title">ユーザー・接続・データ</div>
+              <div class="list">
+                <button class="list-item" data-go="SC-18"><div class="lead-ico">👤</div><div class="grow"><div class="t">ユーザー名</div></div><span class="val" style="font-family:ui-monospace,Menlo,monospace">k3x9q2</span><span class="chev" data-chev></span></button>
+                <button class="list-item" data-go="SC-13"><div class="lead-ico">🔑</div><div class="grow"><div class="t">接続の設定</div></div><span class="val">設定済み</span><span class="chev" data-chev></span></button>
+                <button class="list-item" data-go="SC-14"><div class="lead-ico">☁️</div><div class="grow"><div class="t">データの保存</div></div><span class="val">保存済み</span><span class="chev" data-chev></span></button>
+              </div>
+              <div class="section-title">その他</div>
+              <div class="list">
+                <button class="list-item" data-go="SC-01"><div class="lead-ico">🧭</div><div class="grow"><div class="t">セットアップをやり直す</div></div><span class="chev" data-chev></span></button>
+                <div class="list-item" style="cursor:default"><div class="lead-ico">ℹ️</div><div class="grow"><div class="t">バージョン</div></div><span class="val">2.0.0</span></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SC-10 Return app -->
+          <section class="screen" data-id="SC-10">
+            <div class="appbar"><button class="iconbtn" data-act="back" aria-label="戻る"></button><h1>応答後に戻るアプリ</h1></div>
+            <div class="pad" style="padding-top:0" id="returnBody"></div>
+          </section>
+
+          <!-- SC-11 Recording settings -->
+          <section class="screen" data-id="SC-11">
+            <div class="appbar"><button class="iconbtn" data-act="back" aria-label="戻る"></button><h1>録音の設定</h1></div>
+            <div class="pad" style="padding-top:0">
+              <div class="card">
+                <span class="field-label">録音の上限</span>
+                <div class="small muted" style="margin-bottom:8px">インカムのボタンを再度押さなくても、この時間で自動的に送ります</div>
+                <div class="stepper"><button class="btn tonal" data-step="-5">−</button><span class="v" id="maxSec">20秒</span><button class="btn tonal" data-step="5">＋</button></div>
+              </div>
+              <div class="card">
+                <span class="field-label">開始の合図</span>
+                <div class="small muted" style="margin-bottom:8px">録音が始まったことを知らせる音の長さ</div>
+                <div class="seg-in" data-group="cue">
+                  <button aria-pressed="false">なし</button><button aria-pressed="false">0.5秒</button><button aria-pressed="false">1秒</button><button aria-pressed="true">2秒</button><button aria-pressed="false">3秒</button>
+                </div>
+              </div>
+              <div>
+                <span class="field-label">録音の用途</span>
+                <div class="small muted" style="margin:0 2px 8px">機種によって聞き取りやすいものが違います</div>
+                <div class="list" data-group="src">
+                  <button class="radio-item"><span class="radio on"></span><div><div style="font-weight:600">音声認識</div><div class="small muted">既定</div></div></button>
+                  <button class="radio-item"><span class="radio"></span><div><div style="font-weight:600">通話</div><div class="small muted">雑音を抑える。機種によっては無音になる</div></div></button>
+                  <button class="radio-item"><span class="radio"></span><div><div style="font-weight:600">標準のマイク</div></div></button>
+                  <button class="radio-item"><span class="radio"></span><div><div style="font-weight:600">未加工</div><div class="small muted">処理をかけずに録る</div></div></button>
+                </div>
+              </div>
+              <button class="btn tonal block">既定値に戻す</button>
+            </div>
+          </section>
+
+          <!-- SC-16 Ride recording settings -->
+          <section class="screen" data-id="SC-16">
+            <div class="appbar"><button class="iconbtn" data-act="back" aria-label="戻る"></button><h1>走行の記録</h1></div>
+            <div class="pad" style="padding-top:0">
+              <div class="card">
+                <span class="field-label">連続して記録できる最長時間</span>
+                <div class="small muted" style="margin-bottom:10px">開始または再開してから一時停止せずに記録し続けた時間がこれを超えると、終了し忘れとみなして自動で終了・保存します。一時停止して再開すると数え直します</div>
+                <div class="seg-in" data-group="maxride" style="grid-template-columns:repeat(4,1fr)">
+                  <button aria-pressed="false">12時間</button><button aria-pressed="true">24時間</button><button aria-pressed="false">48時間</button><button aria-pressed="false">72時間</button>
+                </div>
+              </div>
+              <div class="small muted" style="padding:0 4px">泊まりがけでも、休憩や宿泊で一時停止していれば数え直すので、ふだんは変える必要はありません。記録中の走行にも、変更はすぐに反映されます。</div>
+            </div>
+          </section>
+
+          <!-- SC-12 Recording check -->
+          <section class="screen" data-id="SC-12">
+            <div class="appbar"><button class="iconbtn" data-act="back" aria-label="戻る"></button><h1>録音の確認</h1></div>
+            <div class="pad" style="padding-top:0" id="recBody"></div>
+          </section>
+
+          <!-- SC-13 Connection -->
+          <section class="screen" data-id="SC-13">
+            <div class="appbar"><button class="iconbtn" data-act="back" aria-label="戻る"></button><h1>接続の設定</h1></div>
+            <div class="pad" style="padding-top:0">
+              <div class="card">
+                <div class="row between"><span class="field-label" style="margin:0">接続キー</span><span class="small" style="color:var(--ok)">✓ 設定済み</span></div>
+                <div style="font-family:ui-monospace,Menlo,monospace;font-size:16px;margin:8px 0 2px">••••••••••••3f9a</div>
+                <div class="small muted">端末の安全な領域に保存しています</div>
+              </div>
+              <div>
+                <label class="field-label" for="keyIn">変更する</label>
+                <input class="input" id="keyIn" placeholder="新しいキーを貼り付け">
+              </div>
+              <button class="btn primary block">確かめて保存</button>
+              <div class="small muted" style="padding:0 4px">接続キーは身内で共通のものを使います。記録はキーではなくユーザー名で分かれます。</div>
+              <button class="btn danger block" data-overlay="DL-01" data-dl="key">キーを削除</button>
+            </div>
+          </section>
+
+          <!-- SC-18 User name -->
+          <section class="screen" data-id="SC-18">
+            <div class="appbar"><button class="iconbtn" data-act="back" aria-label="戻る"></button><h1>ユーザー名</h1></div>
+            <div class="pad" style="padding-top:0">
+              <div class="card">
+                <div class="small muted">今のユーザー名</div>
+                <div style="font-family:ui-monospace,Menlo,monospace;font-size:30px;font-weight:800;letter-spacing:.06em;margin:4px 0">k3x9q2</div>
+                <div class="small muted">記録はユーザー名ごとに分かれます。別の端末で同じユーザー名を設定すると、記録を引き継げます。控えておいてください。</div>
+              </div>
+              <div>
+                <label class="field-label" for="userIn">ユーザー名を変える</label>
+                <input class="input" id="userIn" placeholder="英小文字と数字 3〜20文字" style="font-family:ui-monospace,Menlo,monospace">
+              </div>
+              <button class="btn primary block" data-overlay="DL-03">変更する</button>
+              <div class="small muted" style="padding:0 4px">変えると、今の記録は引き継がれず、新しいユーザー名の記録が表示されます。今の記録は消えず、元のユーザー名に戻せばまた見られます。</div>
+            </div>
+          </section>
+
+          <!-- SC-14 Data -->
+          <section class="screen" data-id="SC-14">
+            <div class="appbar"><button class="iconbtn" data-act="back" aria-label="戻る"></button><h1>データの保存</h1></div>
+            <div class="pad" style="padding-top:0">
+              <div class="card" data-when="synced">
+                <div class="row"><span class="dot" style="background:var(--ok);width:14px;height:14px"></span><b style="font-size:17px">すべてクラウドに保存済み</b></div>
+                <div class="small muted" style="margin-top:4px">最終保存 10:22</div>
+              </div>
+              <div class="card" data-when="pending">
+                <div class="row"><span class="dot" style="background:var(--warn-bg);width:14px;height:14px"></span><b style="font-size:17px">未送信の記録があります</b></div>
+                <div class="small muted" style="margin-top:4px">質問できなかった地点 1件・電波のない区間のルート。通信できるようになると自動で送ります。</div>
+                <button class="btn tonal block" style="margin-top:10px">今すぐ保存</button>
+              </div>
+              <div class="list"><div class="kv"><span>ユーザー名</span><span style="font-family:ui-monospace,Menlo,monospace;font-weight:700">k3x9q2</span></div></div>
+              <div class="section-title">保存している内容</div>
+              <div class="list">
+                <div class="kv"><span>会話の文字・ルート・メモ</span><span>端末＋クラウド · すべて</span></div>
+                <div class="kv"><span>録音の音声</span><span>端末のみ · 確認用に直近10件</span></div>
+              </div>
+              <div class="small muted" style="padding:0 4px">機種を変えても、同じユーザー名を設定すれば記録が戻ります。音声はクラウドに残さないため戻りません。</div>
+              <div class="section-title">件数</div>
+              <div class="list">
+                <div class="kv"><span>走行</span><span>3</span></div>
+                <div class="kv"><span>質問</span><span>19</span></div>
+                <div class="kv"><span>端末の音声</span><span>10 / 10</span></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Overlays -->
+          <div class="overlay" id="ovStart" data-ov="SC-17">
+            <div class="scrim" data-close></div>
+            <div class="sheet">
+              <div class="grabber"></div>
+              <h3 style="margin:0;font-size:20px">走行を開始</h3>
+              <div><label class="field-label" for="startName">この走行の名前</label><input class="input" id="startName" placeholder="例: 箱根・御殿場" maxlength="40"></div>
+              <div class="small muted">名前を入れると開始できます。あとで変えることもできます。</div>
+              <button class="btn primary block" style="min-height:60px;font-size:18px" id="startGo" data-act="startTrip" disabled>▶ 開始</button>
+              <button class="btn tonal block" data-close>やめる</button>
+            </div>
+          </div>
+
+          <div class="overlay" id="ovSheet" data-ov="SC-04">
+            <div class="scrim" data-close></div>
+            <div class="sheet">
+              <div class="grabber"></div>
+              <h3 style="margin:0;font-size:20px">走行を終了しますか？</h3>
+              <div class="stats card" style="box-shadow:none;background:var(--surface-2)">
+                <div class="stat"><b>1:30</b><span>走行時間</span></div>
+                <div class="stat"><b>62.4<small style="font-size:12px"> km</small></b><span>距離</span></div>
+                <div class="stat"><b>4</b><span>質問</span></div>
+              </div>
+              <div class="small muted">08:58〜10:46 · 一時停止 1回（18分）は走行時間に含めません</div>
+              <div><label class="field-label" for="tripName">この走行の名前</label><input class="input" id="tripName" value="箱根から御殿場へ"></div>
+              <button class="btn primary block" data-act="endTrip">終了して保存</button>
+              <button class="btn tonal block" data-close>走行を続ける</button>
+            </div>
+          </div>
+
+          <div class="overlay" id="ovText" data-ov="text">
+            <div class="scrim" data-close></div>
+            <div class="sheet">
+              <div class="grabber"></div>
+              <h3 style="margin:0;font-size:20px">文字で質問</h3>
+              <textarea class="input" rows="3" placeholder="例: 右手に見える山は何？"></textarea>
+              <div class="small muted" style="text-align:right">500字まで · 回答は読み上げます</div>
+              <button class="btn primary block" data-go="SC-03" data-state-to="waiting">質問する</button>
+              <button class="btn tonal block" data-close>やめる</button>
+            </div>
+          </div>
+
+          <div class="overlay" id="ovDialog" data-ov="DL">
+            <div class="scrim" data-close></div>
+            <div class="dialog">
+              <h3 id="dlTitle">この会話を削除しますか？</h3>
+              <p id="dlBody">質問・回答・メモが削除されます。元に戻せません。</p>
+              <div class="acts"><button class="btn tonal sm" data-close>やめる</button><button class="btn sm" id="dlOk">削除</button></div>
+            </div>
+          </div>
+
+          <div class="overlay" id="ovMenu" data-ov="menu">
+            <div class="scrim" data-close style="background:transparent"></div>
+            <div class="list" style="position:absolute;right:10px;top:48px;width:210px;box-shadow:0 8px 24px rgba(0,0,0,.25)">
+              <button class="list-item" data-act="renameTrip"><span class="grow">名前を変更</span></button>
+              <button class="list-item" data-act="tripMemo"><span class="grow">走行のメモ</span></button>
+              <button class="list-item" data-act="deleteTrip" style="color:var(--danger)"><span class="grow">この走行を削除</span></button>
+            </div>
+          </div>
+
+          <div class="toast" id="toast"></div>
+        </div>
+
+        <nav class="tabbar" id="tabbar">
+          <button data-tab="SC-02"><span class="pill"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg></span>ホーム</button>
+          <button data-tab="SC-05"><span class="pill"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M9 4l6 2 5-2v16l-5 2-6-2-5 2V6zm1 2.3v11.6l4 1.4V7.7z"/></svg></span>記録</button>
+          <button data-tab="SC-09"><span class="pill"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.4-2.9a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></span>設定</button>
+        </nav>
+        <div class="gesture"></div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="spec" id="spec" aria-live="polite"></aside>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ===== Sample data (fictional rides) =====
+// A ride is made of segments; the gaps between segments are pauses (rest, overnight stay, ferry ...).
+const RIDES = [
+  { id: "t1", title: "箱根から御殿場へ", dist: "62.4", moving: "1:30",
+    memo: "仙石原のすすきがちょうど見頃。次は朝早く来て、乙女峠の展望所に寄りたい。",
+    segments: [
+      { day: "2026-10-16", start: "08:58", end: "09:44",
+        pts: [[35.2564,139.1551],[35.2520,139.1420],[35.2450,139.1250],[35.2326,139.1056],[35.2350,139.0900],[35.2393,139.0700],[35.2425,139.0560],[35.2440,139.0420],[35.2470,139.0250],[35.2500,139.0150]] },
+      { day: "2026-10-16", start: "10:02", end: "10:46",
+        pts: [[35.2510,139.0140],[35.2620,139.0080],[35.2780,138.9960],[35.2880,138.9700],[35.2950,138.9500],[35.3000,138.9350]] }
+    ] },
+  { id: "t2", title: "伊豆 一泊", dist: "71.9", moving: "4:05",
+    segments: [
+      { day: "2026-10-11", start: "12:00", end: "14:10",
+        pts: [[35.0960,139.0717],[35.0700,139.0850],[35.0400,139.0950],[35.0050,139.0930],[34.9660,139.1020]] },
+      { day: "2026-10-12", start: "08:30", end: "11:30",
+        pts: [[34.9655,139.1025],[34.9400,139.1250],[34.9000,139.1360],[34.8700,139.1150],[34.8300,139.0700],[34.7900,139.0300],[34.7570,138.9900]] }
+    ] },
+  { id: "t3", title: "内房から三浦へ", dist: "58.3", moving: "2:35",
+    segments: [
+      { day: "2026-10-04", start: "13:10", end: "14:35",
+        pts: [[35.3810,139.9250],[35.3400,139.8900],[35.3040,139.8570],[35.2300,139.8400],[35.1700,139.8220]] },
+      { day: "2026-10-04", start: "15:30", end: "16:40",
+        pts: [[35.2270,139.7150],[35.2000,139.6900],[35.1700,139.6500],[35.1440,139.6200]] }
+    ] }
+];
+
+// Every question, in time order. `ride` is set only when a ride was recording (not paused); the day view ignores it.
+// `at` = [segment, point] on that ride; `p` = explicit position for questions outside a ride.
+const QUESTIONS = [
+  { id: "q01", day: "2026-10-04", t: "13:38", ride: "t3", at: [0, 2], addr: "千葉県富津市富津", dir: "南", right: "西", left: "東", ctx: 1,
+    q: "右に見える細長い陸地は何？", a: "富津岬です。東京湾に突き出た砂州で、先端の展望台からは天気が良ければ富士山と三浦半島が見えます。" },
+  { id: "q02", day: "2026-10-04", t: "14:20", ride: "t3", at: [0, 4], addr: "千葉県富津市金谷", dir: "南", right: "西", left: "東", ctx: 2,
+    q: "左のゴツゴツした岩山は何？", a: "鋸山です。石を切り出した跡がのこぎりの歯のように見えることから名付けられました。山頂近くに地獄のぞきがあります。" },
+  { id: "q03", day: "2026-10-04", t: "14:58", ride: null, paused: "t3", p: [35.2000,139.7700], addr: "東京湾", dir: null, ctx: 3,
+    q: "右に見える大きな船は何？", a: "東京湾を行き来する大型のコンテナ船と思われます。このあたりは浦賀水道で、船の往来がとても多い海域です。" },
+  { id: "q04", day: "2026-10-04", t: "16:05", ride: "t3", at: [1, 2], addr: "神奈川県三浦市初声町", dir: "南西", right: "北西", left: "南東", ctx: 4,
+    q: "三崎って何が有名？", a: "三崎はマグロの水揚げで知られる港町です。港の周りにマグロ料理の店が多く、三崎口から先は城ヶ島にも渡れます。" },
+  { id: "q05", day: "2026-10-11", t: "12:11", ride: "t2", at: [0, 1], addr: "静岡県熱海市上多賀", dir: "南", right: "西", left: "東", ctx: 1,
+    q: "左手に見える島は何？", a: "左手の海に見えているのは初島です。熱海の沖合にある小さな島で、熱海港から船で30分ほどで渡れます。" },
+  { id: "q06", day: "2026-10-11", t: "13:05", ride: "t2", at: [0, 4], addr: "静岡県伊東市湯川", dir: "南", right: "西", left: "東", ctx: 2,
+    q: "伊東って何が有名？", a: "伊東は温泉の湧出量が多い温泉地として知られています。海沿いの干物や、近くの大室山、城ヶ崎海岸も有名です。" },
+  { id: "q07", day: "2026-10-11", t: "19:30", ride: null, paused: "t2", p: [34.9665,139.1010], addr: "静岡県伊東市湯川", dir: null, ctx: 3,
+    q: "明日の伊豆の天気は？", a: "明日の東伊豆は晴れの予報です。朝は少し冷えますが、日中は20度近くまで上がり、走りやすい一日になりそうです。" },
+  { id: "q08", day: "2026-10-12", t: "09:52", ride: "t2", at: [1, 2], addr: "静岡県伊東市富戸", dir: "南", right: "西", left: "東", ctx: 1, newCtx: true,
+    q: "城ヶ崎海岸ってこの近く？", a: "はい、左手側の海沿いすぐのところです。溶岩が海に流れ込んでできた断崖で、門脇つり橋が見どころです。" },
+  { id: "q08b", day: "2026-10-12", t: "10:15", ride: "t2", at: [1, 3], addr: "静岡県東伊豆町奈良本", dir: "南西", right: "北西", left: "南東", ctx: null, offline: true, memo: "斜面の段々畑が何なのか気になった。あとで調べる。",
+    q: null, a: null },
+  { id: "q09", day: "2026-10-12", t: "10:40", ride: "t2", at: [1, 4], addr: "静岡県東伊豆町稲取", dir: "南西", right: "北西", left: "南東", ctx: 2, memo: "金目鯛の煮付け、当たりだった。",
+    q: "この辺でお昼を食べるならどこ？", a: "稲取は金目鯛が名物です。港の近くに煮付けを出す食堂が何軒かあり、この先1キロほどで港に着きます。" },
+  { id: "q10", day: "2026-10-12", t: "11:22", ride: "t2", at: [1, 6], addr: "静岡県河津町浜", dir: "西", right: "北", left: "南", ctx: 3,
+    q: "河津桜って今の時期も見られる？", a: "河津桜の見頃は2月上旬から3月上旬なので、今の時期は咲いていません。川沿いの桜並木は葉桜の散策路になっています。" },
+  { id: "q11", day: "2026-10-15", t: "19:02", ride: null, p: [35.2560,139.1540], addr: "神奈川県小田原市栄町", dir: null, ctx: 1,
+    q: "テストです。聞こえてますか", a: "はい、聞こえています。音声も通信も問題なさそうです。いつでも質問してください。" },
+  { id: "q12", day: "2026-10-15", t: "19:05", ride: null, via: "text", p: [35.2561,139.1542], addr: "神奈川県小田原市栄町", dir: null, ctx: 2,
+    q: "明日の箱根の天気は？", a: "明日の箱根は晴れのち曇りの予報です。最高気温は18度ほどで、朝晩は冷え込むので一枚羽織るものがあると安心です。" },
+  { id: "q13", day: "2026-10-16", t: "09:12", ride: "t1", at: [0, 3], addr: "神奈川県箱根町湯本", dir: "西", right: "北", left: "南", ctx: 3,
+    q: "この辺りって温泉街なの？けっこう旅館が並んでるけど", a: "箱根湯本は箱根の玄関口にあたる温泉街です。早川と須雲川の合流点に旅館や土産物店が集まっていて、日帰りで立ち寄れる湯も多くあります。" },
+  { id: "q14", day: "2026-10-16", t: "09:25", ride: "t1", at: [0, 6], addr: "神奈川県箱根町宮ノ下", dir: "西", right: "北", left: "南", ctx: 4,
+    q: "右手の古い洋館みたいな建物は何？", a: "右手に見えているのは富士屋ホテルです。明治時代に創業した老舗のリゾートホテルで、和洋折衷の本館は登録有形文化財になっています。" },
+  { id: "q15", day: "2026-10-16", t: "09:41", ride: "t1", at: [0, 9], addr: "神奈川県箱根町仙石原", dir: "北西", right: "北東", left: "南西", ctx: 5, memo: "見頃。帰りに寄りたい。",
+    q: "このススキの原っぱは何て場所？", a: "仙石原すすき草原です。台ヶ岳のふもとに広がる草原で、秋には一面が黄金色になります。毎年春の山焼きで今の景観を保っています。" },
+  { id: "q16", day: "2026-10-16", t: "09:52", ride: null, paused: "t1", p: [35.2492,139.0168], addr: "神奈川県箱根町仙石原", dir: null, ctx: 6,
+    q: "この近くで休憩できるカフェある？", a: "仙石原の交差点から歩いて3分ほどのところに、すすき草原を眺められるカフェがあります。駐車場は店の裏手です。" },
+  { id: "q17", day: "2026-10-16", t: "10:08", ride: "t1", at: [1, 2], addr: "静岡県御殿場市深沢", dir: "北西", right: "北東", left: "南西", ctx: 7,
+    q: "この先で富士山は見える？", a: "この先の乙女峠を越えると、正面やや左手に富士山が見えてきます。今日は晴れているので、峠の展望所からはっきり見えるはずです。" },
+  { id: "q18", day: "2026-10-16", t: "10:20", ride: "t1", at: [1, 5], addr: "静岡県御殿場市新橋", dir: "西", right: "北", left: "南", ctx: 1, newCtx: true,
+    q: "近くでガソリン入れられるところある？", a: "右手側、約1.2キロ先の国道138号沿いにガソリンスタンドがあります。そのまま進めば右側に見えてきます。" }
+];
+
+// Point memos: a note tied to a time and place, written by text or by voice (voice is only transcribed, never sent to the AI).
+const POINT_MEMOS = [
+  { id: "m1", day: "2026-10-16", t: "09:33", ride: "t1", at: [0, 7], addr: "神奈川県箱根町小涌谷", via: "voice", text: "この先のカーブ、路面が荒れていて要注意。" },
+  { id: "m2", day: "2026-10-16", t: "09:48", ride: null, p: [35.2496,139.0172], addr: "神奈川県箱根町仙石原", via: "text", text: "すすき草原の駐車場は裏手。バイクは無料で停められた。" },
+  { id: "m3", day: "2026-10-12", t: "10:44", ride: "t2", at: [1, 4], addr: "静岡県東伊豆町稲取", via: "text", text: "港の食堂、11時半には行列。早めに来るべし。" }
+];
+
+const rideById = id => RIDES.find(r => r.id === id);
+const memoById = id => POINT_MEMOS.find(m => m.id === id);
+const rideMemos = id => POINT_MEMOS.filter(m => m.ride === id);
+const dayMemos = day => POINT_MEMOS.filter(m => m.day === day);
+const qById = id => QUESTIONS.find(q => q.id === id);
+const pos = q => q.p || rideById(q.ride).segments[q.at[0]].pts[q.at[1]];
+const rideQs = id => QUESTIONS.filter(q => q.ride === id);
+const dayQs = day => QUESTIONS.filter(q => q.day === day);
+const rideDays = r => [...new Set(r.segments.map(s => s.day))];
+const allDays = () => [...new Set([...QUESTIONS.map(q => q.day), ...POINT_MEMOS.map(m => m.day)])].sort().reverse();
+const WD = "日月火水木金土";
+function fmtDay(d, withWd = true) {
+  const [y, m, dd] = d.split("-").map(Number);
+  const w = WD[new Date(y, m - 1, dd).getDay()];
+  return `${m}月${dd}日` + (withWd ? `（${w}）` : "");
+}
+function rideDateLabel(r) {
+  const ds = rideDays(r);
+  if (ds.length === 1) return fmtDay(ds[0]);
+  const [, , d2] = ds[ds.length - 1].split("-").map(Number);
+  return `${fmtDay(ds[0], false)}〜${d2}日（${ds.length - 1}泊）`;
+}
+const rideSpan = r => `${r.segments[0].start}〜${r.segments[r.segments.length - 1].end}`;
+function minutes(a, b) { const [h1, m1] = a.split(":").map(Number), [h2, m2] = b.split(":").map(Number); return h2 * 60 + m2 - (h1 * 60 + m1); }
+const shortAddr = a => a.replace(/^(東京都|.+?[県府道])/, "");
+// A question attempted with no signal keeps only when and where it happened (no audio, no text).
+const OFFLINE_Q = "（通信できず、質問できなかった）";
+const questionText = q => q.offline ? OFFLINE_Q : q.q;
+const answerText = q => q.offline ? "質問の内容は残していません" : q.a;
+
+// Only the 10 newest recordings are kept, for the recording check screen (SC-12).
+const AUDIO = QUESTIONS.filter(q => !q.offline && q.via !== "text").sort((x, y) => (y.day + y.t).localeCompare(x.day + x.t)).slice(0, 10);
+QUESTIONS.forEach(q => { q.len = 4 + (((q.q || "").length * 7) % 9); q.mic = q.id === "q11" ? "本体のマイク" : "インカム"; });
+
+const APPS = [
+  { name: "Google マップ", pkg: "com.google.android.apps.maps", color: "#1a73e8" },
+  { name: "Yahoo!カーナビ", pkg: "jp.co.yahoo.android.apps.navi", color: "#ff0033" },
+  { name: "ツーリングサポーター", pkg: "jp.co.yamaha.touringsupporter", color: "#2b2b8a" },
+  { name: "NAVITIME", pkg: "com.navitime.local.navitime", color: "#00a0e9" },
+  { name: "Waze", pkg: "com.waze", color: "#33ccff" },
+  { name: "カメラ", pkg: "com.android.camera", color: "#555" },
+  { name: "カレンダー", pkg: "com.google.android.calendar", color: "#4285f4" },
+  { name: "Chrome", pkg: "com.android.chrome", color: "#34a853" },
+  { name: "Gmail", pkg: "com.google.android.gm", color: "#ea4335" },
+  { name: "LINE", pkg: "jp.naver.line.android", color: "#06c755" },
+  { name: "Spotify", pkg: "com.spotify.music", color: "#1db954" },
+  { name: "YouTube Music", pkg: "com.google.android.apps.youtube.music", color: "#ff0000" },
+  { name: "天気", pkg: "com.example.weather", color: "#f5a623" },
+  { name: "電卓", pkg: "com.google.android.calculator", color: "#777" },
+  { name: "時計", pkg: "com.google.android.deskclock", color: "#3c4043" },
+  { name: "フォト", pkg: "com.google.android.apps.photos", color: "#fbbc04" }
+];
+const appState = { timing: "send", on: true, current: "com.google.android.apps.maps", recent: ["com.google.android.apps.maps", "jp.co.yamaha.touringsupporter", "jp.co.yahoo.android.apps.navi"], query: "" };
+
+// ===== Screen catalogue & spec memos =====
+const NAV_GROUPS = [
+  { title: "はじめに", items: ["SC-01"] },
+  { title: "ホーム タブ", items: ["SC-02", "SC-03", "SC-17", "SC-04", "SC-19", "DL-02"] },
+  { title: "記録 タブ", items: ["SC-05", "SC-06", "SC-15", "SC-07", "SC-08", "DL-01"] },
+  { title: "設定 タブ", items: ["SC-09", "SC-16", "SC-10", "SC-11", "SC-12", "SC-18", "DL-03", "SC-13", "SC-14"] }
+];
+const TAB_OF = { "SC-02": "SC-02", "SC-03": "SC-02", "SC-19": "SC-02", "SC-05": "SC-05", "SC-06": "SC-05", "SC-15": "SC-05", "SC-07": "SC-05", "SC-08": "SC-05",
+  "SC-09": "SC-09", "SC-16": "SC-09", "SC-10": "SC-09", "SC-11": "SC-09", "SC-12": "SC-09", "SC-13": "SC-09", "SC-14": "SC-09", "SC-18": "SC-09" };
+
+const SPEC = {
+  "SC-01": { name: "初回セットアップ", role: "ハンズフリーが成立するのに必要な準備を、順に案内する。",
+    states: [["perm","1 許可"],["key","2 接続とユーザー名"],["button","3 インカムのボタン"],["return","4 戻り先"]],
+    body: `<h3>流れ</h3><ul>
+<li>初回起動時に自動で表示する。4ステップ。上部の帯で進み具合を示す。</li>
+<li>「次へ」で進む。未完了のステップがあっても先へ進めるが、ホームに警告の帯を出す。</li>
+<li>最後のステップで「はじめる」を押すとホーム（SC-02）へ。</li>
+<li>設定（SC-09）の「セットアップをやり直す」からいつでも再表示できる。</li></ul>
+<h3>1 許可</h3><ul>
+<li>位置情報は「常に許可」が必要（走行の記録を背面で続けるため）。「アプリの使用中のみ」の場合は、記録が背面で止まることを説明して再設定へ誘導する。</li>
+<li>マイク・通知も同じ画面で求める。許可済みの項目には ✓。</li></ul>
+<h3>2 接続とユーザー名</h3><ul>
+<li>配布時に渡す接続キーを貼り付ける。「次へ」でサーバーに疎通を確かめ、成功すれば保存して ✓ を出す。失敗は理由を赤字で出し、先へは進めるが警告を残す。</li>
+<li>ユーザー名の欄には、ランダムな英小文字と数字の6文字を入れておく。新しく始めるならそのままでよい。</li>
+<li>以前の端末から引き継ぐときは、そのユーザー名を入力する。既にある名前なら「この名前の記録を引き継ぎます」と出し、記録を読み込む。</li></ul>
+<h3>3 インカムのボタン</h3><ul>
+<li>インカムのボタンを押すとアプリの選択画面が出るので、このアプリを「常時」で選ぶよう案内する。</li>
+<li>このアプリでボタンの押下を受け取れたら ✓ を出す。</li>
+<li>Google が開いてしまう場合の外し方を折りたたみで説明する（既定のアシスタントは Google のままでよい）。</li></ul>
+<h3>4 戻り先</h3><ul>
+<li>SC-10 を開いて選ぶ。選ばずに終えてもよい（ホームに「未設定」の帯が出る）。</li></ul>` },
+
+  "SC-02": { name: "ホーム", role: "走行の記録の開始・一時停止・再開・終了と、待機中であることの表示。走行中にチラ見することがある。",
+    states: [["riding","走行を記録中"],["paused","一時停止中"],["idle","記録していない"],["failed","失敗の表示"],["noreturn","戻り先が未設定"]],
+    body: `<h3>レイアウトの原則</h3><ul>
+<li><b>スクロールしない。</b>走行中に出ることがあり、走行中はスクロールできないため、すべての要素が常に画面内に収まる固定のレイアウトにする。</li>
+<li>機種による画面の高さの違いに備え、要素の合計に余裕を持たせる。小さめの画面（幅360・高さ640 程度）で帯が1本出ても収まること。</li>
+<li>要素は上から詰めて並べ、余った高さは画面の下に残す（途中に空白を作らない）。高さが足りないときは「新しい会話を始める」が縮んで吸収する（最小76px・最大140px）。</li>
+<li>地図は置かない（走行中に見るものではない。ルートは記録タブで見る）。</li>
+<li>折りたたみ・展開で高さが変わる要素を置かない。文字での質問はシートで開く。</li>
+<li>保存の状態はホームに出さない（記録タブと設定で見る）。</li></ul>
+<h3>ユーザー名</h3><ul>
+<li>上部のバーの左に、今のユーザー名を大きめに出す（アプリ名は出さない）。別のユーザー名のまま使ってしまう間違いを防ぐため。</li>
+<li>押すと SC-18 を開く。記録タブの上部にも小さく出す。</li></ul>
+<h3>走行の状態</h3><table><tr><th>状態</th><th>表示</th><th>操作</th></tr>
+<tr><td>記録していない</td><td>「走行を開始」を大きく（高さ60px以上）</td><td>開始（SC-17 で名前を付ける）</td></tr>
+<tr><td>記録中</td><td>赤い点滅「走行を記録中」・名前・走行時間・距離・質問数</td><td>一時停止／終了</td></tr>
+<tr><td>一時停止中</td><td>灰色「一時停止中」・走行時間は止まる・「一時停止中の質問は走行の記録に入らない」</td><td>再開／終了</td></tr></table>
+<ul>
+<li>一時停止は休憩・食事・宿泊・フェリーや電車での移動などを想定する。一時停止中はルートを記録しない。</li>
+<li>走行時間は一時停止中を含めない。距離も一時停止中の移動を含めない。</li>
+<li>走行は日をまたいでよい（泊まりがけの走行）。再開すると同じ走行の続きになる。</li>
+<li>一時停止せずに連続して記録した時間が最長時間（既定24時間、SC-16 で変更）に達すると、終了し忘れとみなして自動で終了・保存する。一時停止→再開で数え直す。一時停止中は数えない。終了したことは端末の通知で知らせる。</li>
+<li>一時停止・再開は確認なしで即時。トーストで知らせる。</li>
+<li>「終了」は SC-04 のシートを開く（誤って終えないよう、ここでは終了しない）。</li>
+<li>「📝 走行メモ」で、記録中（一時停止中を含む）の走行のメモを SC-08 で開く。停車中にすぐ書き足せるように。走行を記録していないときは出さない。</li>
+<li>記録中・一時停止中は端末の通知にもその状態を出し続ける（タップでこの画面）。ステータスバーの REC／⏸ はその表現。</li></ul>
+<h3>進行方向と地点メモ</h3><ul>
+<li>「北西へ走行中」と、右手・左手の方角。方位磁針の矢印は進行方向を指す。</li>
+<li>同じカードの右に「📝 地点メモ」を置く（高さを増やさない）。停車してすぐ書けるよう、押すと SC-19 を新規で開く。走行を記録していないときも出す。</li>
+<li>停車中・曲がった直後で方位が出せないときは「進行方向：走り出すと出ます」。</li></ul>
+<h3>質問の入口</h3><ul>
+<li>走行中の質問はインカムのボタンだけを想定する。「インカムのボタンで話せます」という小さな待機の表示を置き、使える状態だと分かるようにする（大きくはしない）。</li>
+<li>「押して話す」🎤「文字で質問」⌨ はテストや停車中のためのもので、上部のバーに小さなアイコンボタンとして置く。「押して話す」は SC-03 の録音中へ。</li>
+<li>「文字で質問」は下からシートを開く。入力は500字まで。送ると SC-03 の回答待ちから始まる。文字で聞いても回答は読み上げる。</li></ul>
+<h3>会話の続き</h3><ul>
+<li>会話の文脈は続けるのが基本。区切るのは、利用者が「新しい会話を始める」（DL-02）を押したときと、最後の質問から一定の時間が経ったときだけ。走行の開始・一時停止・再開・終了では区切らない。</li>
+<li>「新しい会話を始める」は停車中に手袋のまま押せるよう、ホームでいちばん大きなボタンにする。ボタンの中の上段に、会話がいつから続いているかと何問目かを大きく出す（状況）。下段に「新しい会話を始める」（操作）。</li>
+<li>区切った直後（まだ質問していない）は「新しい会話です」と出し、ボタンは押せない見た目にする。</li>
+<li>最後の質問から一定の時間（既定15分。管理者が設定で変える）が経つと自動で区切る。ボタンの下段に「◯:◯◯ まで質問がなければ自動で区切ります」と出す。</li></ul>
+<h3>帯（警告）</h3><table><tr><th>種類</th><th>出る条件</th><th>消え方</th></tr>
+<tr><td>失敗しました</td><td>画面から始めた質問が失敗</td><td>15秒で消える</td></tr>
+<tr><td>戻るアプリが未設定</td><td>「戻る」なのに未選択</td><td>選ぶと消える。タップで SC-10</td></tr>
+<tr><td>位置の許可が不足</td><td>「常に許可」でない</td><td>許可で消える</td></tr>
+<tr><td>接続キーが無い</td><td>未設定</td><td>設定で消える。タップで SC-13</td></tr></table>
+<p class="small">帯は画面の一番上に、黄色で1行だけ出す。同時に出すのは1本だけ（重要な順に1本）で、高さが増えすぎないようにする。</p>` },
+
+  "SC-03": { name: "対話", role: "録音中・回答待ち・読み上げ中を画面全体の色で示す。走行中に出る全面の表示。",
+    states: [["recording","録音中"],["waiting","回答待ち"],["speaking","読み上げ中"],["offline","通信できない"],["micwarn","マイクの警告"]],
+    body: `<h3>共通</h3><ul>
+<li>状態ごとに画面全体を塗る: <b>赤＝録音中</b>、<b>青＝回答待ち</b>、<b>緑＝読み上げ中</b>。色だけで状態が分かること。</li>
+<li>文字は一瞬で読める大きさ。タブは出さない。スクロールしない。</li>
+<li>上部に小さく走行の記録の状態（記録中なら距離、一時停止中なら「一時停止中」）を出す。</li>
+<li>押せる領域は「上の大きな領域」と「下のやめるボタン」の2つだけ。入れ子にしない。</li>
+<li>下のボタンは白い太枠で、上の領域と見た目を分ける。</li></ul>
+<h3>録音中（赤）</h3><ul>
+<li>開始時に合図の音を鳴らす（既定2秒、SC-11 で変更）。</li>
+<li>「話してください」と残り秒数を特大で。上限は既定20秒（SC-11）。0になると自動で送る。</li>
+<li>インカムのボタンの再押し、または赤い領域のどこを押しても送信（手袋でも狙わずに押せる）。</li>
+<li>下のボタン「送らずにやめる」で録音を捨てて SC-02 へ。</li>
+<li>インカムのマイクに繋がらなかったときだけ黄色の警告を出す（インカム未接続でも録音は続ける）。</li></ul>
+<h3>回答待ち（青）</h3><ul>
+<li>「考えています…」と経過秒数を特大で。止まっていないことを示すため数え続ける。</li>
+<li>「最初の質問は10秒ほど」を小さく添える。</li>
+<li>このあいだにインカムのボタンが押されたら「いま応答中です。少し待ってからもう一度お話しください。」と読み上げる。</li>
+<li>下のボタン「待つのをやめる」で、回答を受け取らずに SC-02 へ（記録には「回答を受け取らなかった」として残す）。</li></ul>
+<h3>読み上げ中（緑）</h3><ul>
+<li>「回答中」と回答の文（8行まで）。緑の領域か下の「読み上げを止める」で止まる。</li>
+<li>回答の音声が作れなかったときは、端末の音声で本文を読む。</li></ul>
+<h3>通信できないとき（灰色）</h3><ul>
+<li>録音を終えた時点で通信できなければ、質問できない（音声を文字にするのも回答もクラウド側で行うため）。</li>
+<li>録音は捨て、「この地点で質問しようとした」こと（日時・位置・進行方向）だけを端末に記録する。</li>
+<li>端末の音声で「通信できないため、質問できませんでした。」と知らせる。</li>
+<li>インカムのボタンで始め、戻り先のアプリがあるときは、この画面は出さずにすぐナビへ戻る（走行中に画面の操作を求めない）。</li>
+<li>それ以外（戻らない設定・画面から質問したとき）は、全面を灰色にし「通信できません」「質問できませんでした。この地点を記録しました。」と出す。<b>5秒で自動で閉じて SC-02 に戻る。</b>下のボタン「閉じる（◯秒で自動で閉じます）」で早めに閉じることもできるが、押す必要はない。</li>
+<li>記録した地点は、通信できるようになったら他の記録と同じくクラウドへ送る。音声の送り直しや、あとから AI に聞くことはしない。</li></ul>
+<h3>ハンズフリーとの関係</h3>
+<p class="small">インカムのボタンで始め、戻り先のアプリがあるときは、速やかにナビへ戻ることを優先する。戻るタイミングは SC-10 で選ぶ。</p>
+<table>
+<tr><th>戻るタイミング（SC-10）</th><th>この画面に出す状態</th><th>裏で行うこと</th></tr>
+<tr><td>送ったらすぐ戻る（既定）</td><td>録音中だけ</td><td>回答待ち・読み上げ</td></tr>
+<tr><td>回答が届いたら戻る</td><td>録音中・回答待ち</td><td>読み上げ</td></tr>
+<tr><td>読み上げが終わったら戻る</td><td>録音中・回答待ち・読み上げ中</td><td>—</td></tr>
+<tr><td>（戻らない設定・画面から質問したとき）</td><td>録音中・回答待ち・読み上げ中。終わったら SC-02</td><td>—</td></tr></table>
+<ul>
+<li>送ったらすぐ戻るときは、送った合図の短い音を鳴らす（回答待ちの画面を見ずに、送れたことが分かるように）。</li>
+<li>裏で待っているあいだにインカムのボタンが押されたら「いま応答中です…」と読み上げる。失敗も端末の音声で知らせる。</li>
+<li>裏で回答を待つ・読み上げることは、アプリが背面にあっても動き続ける仕組み（記録中の通知と同じ仕組み）を前提にする。実現できるかは実機で確かめる（要件定義 §10）。</li></ul>
+<h3>失敗（インカムのボタンで始めたとき）</h3><ul>
+<li>画面が見えない前提なので、端末の音声で知らせる。既に戻り先へ戻っていればそのまま（既定）。まだ戻っていなければ、知らせたあとに戻る。</li>
+<li>「回答を取得できませんでした。もう一度お話しください。」「送信に失敗しました。もう一度お話しください。」「聞き取れませんでした。もう一度お話しください。」</li></ul>` },
+
+  "SC-04": { name: "走行終了の確認", role: "走行を終了して保存する（SC-02 の上に出るシート）。",
+    states: [], body: `<ul>
+<li>SC-02 の「終了」で下から出る。記録中・一時停止中のどちらからでも出せる。</li>
+<li>要約: 走行時間（一時停止を除く）、距離、質問数、開始〜終了の時刻、一時停止の回数と合計時間。日をまたぐときは期間（◯月◯日〜◯日）。</li>
+<li>最長時間に達したときはこのシートを出さず、自動で保存する（名前は開始時に付けたもののまま。あとで SC-06 で変えられる）。</li>
+<li>名前は開始時（SC-17）に付けたものを入れておく。ここでも変えられる（あとから SC-06 でも変えられる）。空にはできない。</li>
+<li>「終了して保存」で記録を確定し、その走行の SC-06 を開く。保存はまず端末に行い、クラウドへは裏で送る。</li>
+<li>「走行を続ける」・外側のタップで閉じ、もとの状態（記録中／一時停止中）に戻る。</li>
+<li>質問が0件・距離がごく短い走行でも保存する（削除は SC-06 から）。</li></ul>` },
+
+  "SC-17": { name: "走行の開始", role: "走行に名前を付けて記録を始める（SC-02 の上に出るシート）。", states: [],
+    body: `<ul>
+<li>SC-02 の「走行を開始」で下から出る。</li>
+<li>名前は必須。入力欄は空で開き、例を薄く出す（「例: 箱根・御殿場」）。名前を入れるまで「開始」は押せない。</li>
+<li>日付を使った既定の名前は付けない（日ごとの記録と見分けがつかなくなるため）。</li>
+<li>40字まで。同じ名前の走行があってもよい。</li>
+<li>「開始」で記録を始め、SC-02 は「走行を記録中」になる。走行中のホームの上部にはこの名前を出す。</li>
+<li>「やめる」・外側のタップで閉じ、記録は始めない。</li>
+<li>名前はあとから SC-04（終了時）・SC-06 でも変えられる。</li></ul>` },
+
+  "SC-19": { name: "地点メモ", role: "今いる地点（または記録の上の地点）にメモを書く。走行のメモとは別のもの。", states: [["new","ホームから新規"],["voice","声で入力中"],["edit","記録から開いた"],["offline","通信できない"]],
+    body: `<h3>地点メモとは</h3><ul>
+<li>日時・位置・進行方向と結びついたメモ。質問とも、走行全体に付ける「走行のメモ」（SC-08）とも別のもの。</li>
+<li>走行の記録中（一時停止中を除く）に書いたものはその走行にも結びつく。どのメモも日ごとの記録には必ず出る。</li>
+<li>地図では質問（オレンジ）とは別の色（緑）のピンで出し、質問とは別の通し番号を振る。</li>
+<li>走行を記録していなくても書ける（質問と同じ扱い）。新規で開いたとき、どこに残るか（日ごとだけか、走行にも入るか）を上部に出す。</li></ul>
+<h3>開き方</h3><ul>
+<li>ホームの「📝 地点メモ」から新規で開く。停車してすぐ書けるように、確認などを挟まない。位置は開いた時点の現在地。</li>
+<li>記録（SC-06・SC-15）のピンや時系列の行から、既存のメモを開いて直す・消す。</li>
+<li>日ごと（SC-15）から開いたときは、走行の情報（走行の名前など）を出さない（走行と日ごとは独立）。</li></ul>
+<h3>入力</h3><ul>
+<li>文字で書く（2000字まで）。開いたら入力欄にフォーカスしてキーボードを出す。</li>
+<li>「🎤 声で入力」で録音し、もう一度押す（またはインカムのボタン）と文字にして入力欄に足す。声は文字にするためだけにサーバーへ送り、AI には聞かない。音声は残さない。</li>
+<li>通信できないときは声での入力はできない（文字で書けば保存はできる。通信が戻ったら送る）。</li>
+<li>右上「保存」で保存して戻る。左上 ✕ で取り消し（変更があれば破棄を確認）。空のまま保存はできない。</li>
+<li>記録から開いたときは「この地点メモを削除」（DL-01）。</li></ul>` },
+
+  "DL-02": { name: "新しい会話の確認", role: "会話の文脈を区切る。", states: [],
+    body: `<ul>
+<li>SC-02 の「新しい会話を始める」で出る。</li>
+<li>本文: 「AI はこれまでの会話を踏まえずに答えます。記録は残ります。」</li>
+<li>「始める」で文脈を区切り、トーストで「新しい会話を始めました」と知らせる。</li>
+<li>区切った位置は記録にも残り、SC-06・SC-15 の一覧に「ここから新しい会話」の区切りとして出る。</li></ul>` },
+
+  "SC-05": { name: "記録一覧", role: "記録を「走行ごと」と「日ごと」の2つの切り口で一覧する。", states: [["rides","走行"],["days","日ごと"]],
+    body: `<h3>切り替え</h3><ul>
+<li>上部の切り替えで「走行」「日ごと」を選ぶ。選んだほうを覚えておき、次に開いたときもそのまま出す。</li>
+<li>どちらも新しい順。上部に保存の状態（未送信の記録があればその旨）。タップで SC-14。</li></ul>
+<h3>走行</h3><ul>
+<li>1行に1走行: 名前、日付（泊まりがけは期間）と開始〜終了の時刻、距離・走行時間・質問数・一時停止の回数。メモがあれば 📝。</li>
+<li>一覧に地図・ルートの縮図は出さない（地図は SC-06 で見る）。</li>
+<li>記録中・一時停止中の走行は一番上に、その状態とともに出す。</li>
+<li>行のタップで SC-06。</li></ul>
+<h3>日ごと</h3><ul>
+<li><b>質問は日ごとに見るのが基本。</b>走行の記録とは独立して、その日のすべての質問をまとめる。</li>
+<li>1行に1日。出すのは日付と質問数（地点メモがあればその数も）だけ（走行の名前や地図は出さない）。</li>
+<li>質問か地点メモのあった日だけを出す。</li>
+<li>行のタップで SC-15。</li></ul>
+<p class="small">文字での検索・書き出しは持たない（要件定義 §8）。</p>` },
+
+  "SC-06": { name: "走行の詳細", role: "1つの走行のルートと、その走行中にした質問を地図で見る。", states: [["t1","休憩で一時停止"],["t2","泊まりがけ"],["t3","フェリーを挟む"]],
+    body: `<h3>地図</h3><ul>
+<li>国土地理院の淡色地図。右下に出典を表示する。ダークの外観では地図の色を反転して暗くする。</li>
+<li>ルートを区間ごとに線で描き、出発（緑）と到着（黒）の印を置く。開いたときはルート全体が収まる縮尺。</li>
+<li>一時停止の区間（記録していない区間）は、前の区間の終わりと次の区間の始まりを灰色の破線で結ぶ（フェリーなどで離れていても繋がりが分かる）。</li>
+<li>この走行の記録中にした質問の地点に、番号付きのピンを立てる。一時停止中の質問は出さない。</li>
+<li>地図の左上の ⛶ で地図を全画面にする（タブも隠す）。全画面でも質問の切り替え・ピンのタップはそのまま使える。✕ か端末の戻る操作で元に戻る。</li>
+<li>この走行の記録中に書いた地点メモを、質問とは別の色（緑）で、質問とは別の通し番号のピンで出す。タップで要約カード、カードのタップで SC-19。</li>
+<li>地図の右上の切り替え「💬 質問」「📝 地点メモ」で、それぞれのピンを出す／隠す。両方隠せばルートだけを見られる。選んだ状態は覚えておき、次に開いたときもそのまま。下の時系列の一覧は切り替えに関係なく出す。</li>
+<li>ピンをタップすると青く強調し、地図の下端に要約カード（番号・時刻・場所・質問と回答の冒頭）を出す。カードのタップで SC-07。</li></ul>
+<h3>下の領域</h3><ul>
+<li>要約: 日付（泊まりがけは期間）・開始〜終了の時刻・走行時間（一時停止を除く）・距離・質問数・一時停止の回数。</li>
+<li>走行のメモ（あれば）。無ければ「＋ 走行のメモ」。SC-08 で編集。</li>
+<li>時系列: 日付の見出し（日をまたぐとき）、質問（番号・時刻・場所・質問2行まで）、地点メモ（緑の番号・時刻・場所・本文2行まで。タップで SC-19）、一時停止（「⏸ 一時停止 09:44〜10:02（18分）」）、会話の区切り。</li>
+<li>行のタップで SC-07。SC-07 の前後の移動はこの走行の質問の中で行う。</li>
+<li>日ごとの記録とは独立しているので、日ごとの画面へのリンクは置かない。</li>
+<li>最長時間に達して自動で終了した走行は、要約に「自動で終了」と出す。</li></ul>
+<h3>メニュー（⋮）</h3><ul>
+<li>名前を変更／走行のメモ／この走行を削除（DL-01）。</li></ul>` },
+
+  "SC-15": { name: "日ごとの質問", role: "ある日にしたすべての質問を、地図と一覧で見る。走行の記録とは完全に独立している。", states: [["2026-10-16","10月16日"],["2026-10-15","10月15日"],["2026-10-11","10月11日"]],
+    body: `<ul>
+<li>日ごとの記録は走行の記録と独立している。走行の名前・ルート・走行中かどうかは出さず、走行の画面へのリンクも置かない。</li>
+<li>地図: その日の質問の地点に番号付きのピン（オレンジ）、地点メモに別の通し番号のピン（緑）を立てる。ピンのタップで要約カード、カードのタップで SC-07／SC-19。</li>
+<li>地図の左上の ⛶ で全画面にできる（SC-06 と同じ）。</li>
+<li>一覧: 質問と地点メモを時刻順に混ぜて出す。会話の区切りも出す。行のタップで SC-07／SC-19。</li>
+<li>SC-07 の前後の移動は、この日の質問の中で行う。</li>
+<li>日付は質問した時刻で決める（0時をまたいだら次の日）。</li></ul>` },
+
+  "SC-07": { name: "会話の詳細", role: "1件の質問と回答を読む。", states: [["ride","走行から開いた"],["day","日ごとから開いた"],["offline","質問できなかった地点"]],
+    body: `<ul>
+<li>見出しに、開いた元の一覧の中での位置（走行から開いたら「会話 3 / 5」、日ごとから開いたら「10月16日 3 / 6」）。‹ › でその一覧の前後へ移る。</li>
+<li>小さな地図: その地点のピン。走行から開いたときだけ、その走行のルートを淡く描く。</li>
+<li>日時・場所（住所）・進行方向（右手・左手の方角）。方位が出ていなかった質問は「停車中」。</li>
+<li>走行と日ごとは独立しているので、この画面から他方へ移るリンクは置かない。</li>
+<li>質問（聞き取られた文）と回答を吹き出しで。会話の文脈の何問目かを小さく添える。</li>
+<li>声で聞いたか文字で聞いたかを出す。</li>
+<li>通信できず質問できなかった地点は、質問と回答の代わりに「📵 通信できず、質問できなかった」と出す。質問の内容は残っていないので、何を聞きたかったかはメモに書けることを示す。</li>
+<li>一覧（SC-06・SC-15）・地図のピンでも、この地点は「（通信できず、質問できなかった）」と出す。</li></ul>
+<h3>音声</h3><ul>
+<li>この画面に音声は出さない。質問の音声は原則として残さず、確認用の直近10件だけを SC-12（設定 > 録音の確認）で聞ける。</li></ul>
+<h3>メモ・削除</h3><ul>
+<li>メモがあれば本文と「編集」。無ければ「＋ メモを追加」。どちらも SC-08。</li>
+<li>「この会話を削除」で DL-01。削除しても走行のルートは残る。ピンの番号は詰める。</li></ul>` },
+
+  "SC-08": { name: "メモの編集", role: "会話や走行にメモを書く。", states: [],
+    body: `<ul>
+<li>上部に何のメモかを出す（「会話 · 09:41 箱根町仙石原」「走行のメモ」）。</li>
+<li>入力は2000字まで。開いたら入力欄にフォーカスしてキーボードを出す。</li>
+<li>右上「保存」で保存して戻る。左上 ✕ で取り消して戻る。変更があるのに取り消すときは「変更を破棄しますか？」を確認する。</li>
+<li>メモを空にして保存すると、メモが無い状態になる。</li></ul>` },
+
+  "DL-01": { name: "削除の確認", role: "会話・走行・録音などを消す前に確かめる。", states: [["conv","会話"],["trip","走行"],["memo","地点メモ"],["rec","録音"],["key","接続キー"]],
+    body: `<table><tr><th>対象</th><th>本文</th><th>削除後</th></tr>
+<tr><td>会話</td><td>質問・回答・メモが削除されます。元に戻せません。</td><td>開いた元の一覧（SC-06／SC-15）へ戻る</td></tr>
+<tr><td>走行</td><td>ルートと走行のメモが削除されます。質問は日ごとの記録に残ります。元に戻せません。</td><td>SC-05 へ戻る</td></tr>
+<tr><td>地点メモ</td><td>メモが削除されます。元に戻せません。</td><td>開いた元の画面へ戻る</td></tr>
+<tr><td>録音</td><td>端末の音声だけを消します。文字の記録は残ります。</td><td>SC-12 のまま</td></tr>
+<tr><td>接続キー</td><td>質問できなくなります。記録は残ります。</td><td>SC-13 のまま</td></tr></table>
+<ul><li>削除のボタンは赤。「やめる」を左に置き、削除を右に置く。</li>
+<li>削除は端末とクラウドの両方に反映する。</li>
+<li>走行と日ごとは独立しているので、走行を削除しても質問は消えない。質問を消したいときは1件ずつ消す。</li></ul>` },
+
+  "SC-09": { name: "設定", role: "設定の項目を分類して並べ、それぞれの画面へ振り分ける。", states: [],
+    body: `<ul>
+<li>一つの画面に設定を詰め込まず、項目ごとに画面を分ける。この画面は目次の役割だけを持つ。</li>
+<li>各行の右に現在の値を出す（会話を区切るまでの時間、走行の最長時間、戻り先のアプリ名、録音の上限と合図、ユーザー名、接続キーの有無、保存の状態）。</li>
+<li>分類: 走行中の動作／確認／ユーザー・接続・データ／その他。</li>
+<li>行の高さは手袋で押せるよう60px以上。</li></ul>` },
+
+  "SC-10": { name: "応答後に戻るアプリ", role: "応答のあとに戻るアプリ（ナビ）を選ぶ。必要なときだけ開く独立した画面。", states: [["on","戻る"],["off","戻らない"]],
+    body: `<ul>
+<li>先頭にスイッチ「応答後にアプリへ戻る」。オフにしても選んだアプリは覚えておく（オンに戻すと復活）。</li>
+<li>オフのときは、以下の一覧を出さない。</li>
+<li>「現在の戻り先」をアイコンと名前で大きく出す。</li>
+<li>「最近選んだアプリ」を最大5件、先頭に出す。各行の ✕ で一覧から外せる（戻り先の設定は変わらない）。</li>
+<li>「アプリを絞り込む」は見出し付きの入力欄。アプリ名・パッケージ名の部分一致で、下の一覧を絞る。</li>
+<li>「すべてのアプリ」は名前順。ランチャーから開けるアプリだけを出す。</li>
+<li>行をタップすると即時に保存し、「現在の戻り先」が変わる（保存ボタンは無い）。</li>
+<li>戻るのは、インカムのボタンで始めた応答だけ（画面から質問したときは戻らない）ことを説明に書く。</li>
+<li>「戻るタイミング」を選べる: 送ったらすぐ戻る（既定）／回答が届いたら戻る／読み上げが終わったら戻る。オンのときだけ出す。</li>
+<li>お気に入りの手動登録は作らない。</li></ul>` },
+
+  "SC-16": { name: "走行の記録", role: "連続して記録できる最長時間を変える。", states: [],
+    body: `<ul>
+<li>連続して記録できる最長時間: 12・24・48・72時間から選ぶ。既定は24時間。</li>
+<li>開始または再開から、一時停止せずに記録し続けた時間で数える。一時停止→再開で数え直す。一時停止中は数えない。</li>
+<li>達したら終了し忘れとみなし、自動で終了・保存して通知で知らせる。</li>
+<li>変更は即時に保存し、記録中の走行にも反映する。すでに新しい最長時間を超えていたら、その時点で終了する。</li></ul>` },
+
+  "SC-11": { name: "録音の設定", role: "録音の条件を変える。", states: [],
+    body: `<table><tr><th>項目</th><th>選べる値</th><th>既定</th></tr>
+<tr><td>録音の上限</td><td>10〜60秒（5秒刻み）</td><td>20秒</td></tr>
+<tr><td>開始の合図</td><td>なし・0.5・1・2・3秒</td><td>2秒</td></tr>
+<tr><td>録音の用途</td><td>音声認識・通話・標準のマイク・未加工</td><td>音声認識</td></tr></table>
+<ul><li>変更は即時に保存する。</li>
+<li>録音の用途は機種によって合うものが違うことを説明に書く。</li>
+<li>この画面から録音の確認（SC-12）へは移らない。SC-12 へは設定（SC-09）の一覧からだけ入る。</li>
+<li>「既定値に戻す」は3項目すべてを既定に戻す（確認は出さない。トーストで知らせる）。</li></ul>` },
+
+  "SC-12": { name: "録音の確認", role: "録音の具合を確かめる。録音が悪いのか、聞き取りが悪いのかを切り分ける。", states: [["idle","通常"],["trial","試し録り中"],["play","試し録りの再生"]],
+    body: `<h3>試し録り</h3><ul>
+<li>今の録音の設定（用途）で、本番と同じくインカムのマイクで録る。サーバーには送らない。</li>
+<li>録り終える（ボタン・インカムのボタン・上限）と、すぐに再生する。</li>
+<li>試し録りの音声は保存しない（直近10件の数にも含めない）。</li></ul>
+<h3>送った録音（直近10件）</h3><ul>
+<li>質問の音声は容量を食うので原則として残さない。録音できているか・AI に正しく渡せているかを確かめるためだけに、直近10件を端末に残し、この画面でだけ聞ける。</li>
+<li>新しい順。日時・長さ・録ったマイク（インカム／本体のマイク）・用途・聞き取られた文。</li>
+<li>聞き取られた文が空のときは赤字で「聞き取れませんでした」。</li>
+<li>11件目を録ると、最も古い音声を消す。文字の記録（会話）は消えない。</li>
+<li>▶ で再生する。この画面から会話の詳細（SC-07）などの記録の画面へは移らない（録音の確認は設定の中で完結させる）。</li>
+<li>声で聞いた質問だけが並ぶ（文字で聞いた質問には音声が無い）。</li>
+<li>「録音をすべて消す」で DL-01（録音）。</li></ul>` },
+
+  "SC-18": { name: "ユーザー名", role: "記録を分けるためのユーザー名を確かめ、変える。他の端末への引き継ぎにも使う。", states: [],
+    body: `<h3>ユーザー名の役割</h3><ul>
+<li>記録（質問・ルート・メモ）はユーザー名ごとにクラウドに保存する。接続キーとは関係なく、ユーザー名が同じなら同じ記録、違えば別の記録。</li>
+<li>別の端末で同じユーザー名を設定すると、その記録が表示される（引き継ぎ）。</li>
+<li>接続キーとユーザー名を知っていれば他人の記録も見られる。身内だけで使う前提なので、それ以上の保護はしない。</li></ul>
+<h3>この画面</h3><ul>
+<li>今のユーザー名を大きく、等幅の文字で出す（控えやすいように）。引き継ぎに使うので控えておくよう書く。</li>
+<li>既定はアプリを初めて使うときに作る、ランダムな英小文字と数字の6文字。</li>
+<li>変えるときは、英小文字と数字の3〜20文字。</li>
+<li>「変更する」で DL-03 を出す。入力した名前の記録が既にあるか（引き継ぎ）、無いか（新しく始める）で文言を分ける。</li>
+<li>変えると今の記録は引き継がない。今の記録はクラウドに残り、元の名前に戻せばまた見られる。</li>
+<li>未送信の記録（SC-14）があるあいだは変えられない（送ってから変える）。</li></ul>` },
+
+  "DL-03": { name: "ユーザー名の変更の確認", role: "ユーザー名を変える前に、記録が引き継がれないことを確かめる。", states: [["new","新しいユーザー名"],["exists","既にあるユーザー名"]],
+    body: `<table><tr><th>場合</th><th>本文</th><th>ボタン</th></tr>
+<tr><td>新しい名前</td><td>今の記録は引き継がれず、空の状態から始まる。元の名前に戻せば今の記録はまた見られる</td><td>変更する</td></tr>
+<tr><td>既にある名前</td><td>その名前の記録が表示される（引き継ぎ）。今の記録は引き継がれない</td><td>切り替える</td></tr></table>
+<ul><li>どちらも「やめる」を左に置く。</li></ul>` },
+
+  "SC-13": { name: "接続の設定", role: "サーバーへ接続するためのキーを設定する。", states: [],
+    body: `<ul>
+<li>設定済みのキーは伏せ字にし、末尾4文字だけ見せる。</li>
+<li>貼り付けて「確かめて保存」でサーバーに疎通を確かめ、成功したら置き換える。失敗したら元のキーを残す。</li>
+<li>キーは端末の安全な領域に保存する。</li>
+<li>「キーを削除」で DL-01。</li>
+<li>接続キーは身内で共通のものを使ってよい。記録はキーではなくユーザー名（SC-18）で分かれることを説明に書く。</li></ul>` },
+
+  "SC-14": { name: "データの保存", role: "記録がクラウドに保存できているかを確かめる。", states: [["synced","保存済み"],["pending","未保存あり"]],
+    body: `<ul>
+<li>状態: 「すべてクラウドに保存済み」と最終保存の時刻、または「未送信の記録があります」と内訳（質問できなかった地点の件数・未保存のルート）。</li>
+<li>通信できるようになると自動で送る。「今すぐ保存」で手動でも送れる。</li>
+<li>保存している内容を明示する: 会話の文字・ルート・メモは端末とクラウドにすべて、音声は確認用に端末だけに直近10件（設定 > 録音の確認でだけ聞ける）。</li>
+<li>今のユーザー名を出す。機種変更時は同じユーザー名を設定すれば記録が戻ること（音声は戻らない）を説明に書く。</li>
+<li>件数（走行・質問・端末の音声）を出す。</li></ul>` }
+};
+
+// ===== Helpers =====
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const ICON_BACK = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20z"/></svg>';
+const ICON_CHEV = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M9 6l6 6-6 6-1.4-1.4 4.6-4.6-4.6-4.6z"/></svg>';
+const ICON_PLAY = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 4l13 8-13 8z"/></svg>';
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+const CHEV = '<span class="chev" data-chev></span>';
+
+function decorate(root = document) {
+  $$('[data-act="back"]', root).forEach(b => { if (!b.innerHTML.trim()) b.innerHTML = ICON_BACK; });
+  $$("[data-chev]", root).forEach(c => { c.innerHTML = ICON_CHEV; });
+}
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+// ===== Maps =====
+const HAS_L = typeof window.L !== "undefined";
+const ROUTE_COLOR = "#f06d1a";
+const maps = {};
+function makeMap(elId) {
+  const el = document.getElementById(elId);
+  if (!HAS_L) { el.innerHTML = '<div class="map-fallback">地図（国土地理院 淡色地図）<br>オンラインで表示されます</div>'; return null; }
+  if (maps[elId]) return maps[elId];
+  const m = L.map(el, { zoomControl: false, attributionControl: true });
+  L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
+    maxZoom: 18, attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>'
+  }).addTo(m);
+  m._layer = L.layerGroup().addTo(m);
+  maps[elId] = m;
+  return m;
+}
+function pinIcon(n, sel, off) {
+  return L.divIcon({ className: "", html: `<div class="pin${off ? " off" : ""}${sel ? " sel" : ""}"><span>${n}</span></div>`, iconSize: sel ? [36, 36] : [30, 30], iconAnchor: sel ? [2, 34] : [2, 28] });
+}
+function dotIcon(cls) { return L.divIcon({ className: "", html: `<div class="${cls}"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] }); }
+// Draw a ride: solid segments, dashed grey links across pauses.
+function drawRide(layer, r, opts = {}) {
+  const segs = opts.day ? r.segments.filter(s => s.day === opts.day) : r.segments;
+  const op = opts.faint ? .45 : .92;
+  segs.forEach((s, i) => {
+    L.polyline(s.pts, { color: ROUTE_COLOR, weight: opts.faint ? 4 : 5, opacity: op }).addTo(layer);
+    const next = segs[i + 1];
+    if (next) L.polyline([s.pts[s.pts.length - 1], next.pts[0]], { color: "#8a929c", weight: 3, dashArray: "4 7", opacity: .9 }).addTo(layer);
+  });
+  if (opts.ends && segs.length) {
+    L.marker(segs[0].pts[0], { icon: dotIcon("endpoint s") }).addTo(layer);
+    const last = segs[segs.length - 1].pts;
+    L.marker(last[last.length - 1], { icon: dotIcon("endpoint e") }).addTo(layer);
+  }
+  return segs.flatMap(s => s.pts);
+}
+
+// ===== Router =====
+let stack = ["SC-02"];
+let current = "SC-02";
+let states = { "SC-05": "rides" };
+let showPins = true;
+let showMemos = true;
+let params = { trip: "t1", day: "2026-10-16", conv: "q15", from: "ride", memo: "conv", dl: "conv" };
+const OVERLAYS = ["SC-04", "SC-17", "DL-01", "DL-02", "DL-03"];
+
+function show(id) {
+  if (OVERLAYS.includes(id)) return openOverlay(id, {});
+  closeOverlays();
+  exitFullMaps();
+  current = id;
+  $$(".screen").forEach(s => s.classList.toggle("active", s.dataset.id === id));
+  $(`.screen[data-id="${id}"]`).scrollTop = 0;
+  const spec = SPEC[id];
+  if (spec.states.length && !states[id]) states[id] = spec.states[0][0];
+  if (id === "SC-06") states[id] = params.trip;
+  if (id === "SC-15") states[id] = params.day;
+  applyState(id);
+  $("#device").classList.toggle("fullcolor", id === "SC-03");
+  $("#tabbar").hidden = ["SC-03", "SC-01", "SC-08", "SC-19"].includes(id);
+  $$("#tabbar button").forEach(b => b.setAttribute("aria-current", String(b.dataset.tab === TAB_OF[id])));
+  renderSpec(id);
+  renderNav(id);
+  render(id);
+}
+function go(id) { stack.push(id); show(id); }
+function back() { if (stack.length > 1) stack.pop(); show(stack[stack.length - 1]); }
+function tab(id) { stack = [id]; show(id); }
+
+function applyState(id) {
+  const scr = $(`.screen[data-id="${id}"]`);
+  if (!scr) return;
+  const st = states[id];
+  if (st) scr.dataset.state = st;
+  $$("[data-when]", scr).forEach(el => { el.hidden = !!st && !el.dataset.when.split(" ").includes(st); });
+}
+
+function setState(id, st) {
+  if (OVERLAYS.includes(id)) { params.dl = st; openOverlay(id, { dl: st }); return; }
+  states[id] = st;
+  if (id === "SC-06") params.trip = st;
+  if (id === "SC-15") params.day = st;
+  if (id === "SC-19") { if (st === "edit") params.memoId = params.memoId || "m1"; if (st === "new" || st === "offline") params.memoId = null; }
+  if (id === "SC-07") {
+    const pick = { ride: ["q15", "ride"], day: ["q16", "day"], offline: ["q08b", "ride"] }[st];
+    params.conv = pick[0]; params.from = pick[1];
+    const q = qById(params.conv); if (q.ride) params.trip = q.ride; params.day = q.day;
+  }
+  applyState(id); render(id); renderStateBar(id);
+}
+
+// ===== Overlays =====
+function closeOverlays() { $$(".overlay").forEach(o => o.classList.remove("show")); }
+function openOverlay(id, opts) {
+  if (id === "SC-17") {
+    states["SC-02"] = "idle";
+    if (current !== "SC-02") { stack = ["SC-02"]; } show("SC-02");
+    const inp = $("#startName"), goBtn = $("#startGo");
+    inp.value = ""; goBtn.disabled = true;
+    inp.oninput = () => { goBtn.disabled = !inp.value.trim(); };
+    $("#ovStart").classList.add("show");
+  } else if (id === "SC-04") {
+    if (current !== "SC-02") { stack = ["SC-02"]; show("SC-02"); }
+    $("#ovSheet").classList.add("show");
+  } else if (id === "text") {
+    $("#ovText").classList.add("show");
+    return;
+  } else if (id === "DL-03") {
+    if (current !== "SC-18") { stack = ["SC-09", "SC-18"]; show("SC-18"); }
+    if (opts.dl) params.dl = opts.dl;
+    if (!["new", "exists"].includes(params.dl)) params.dl = "new";
+    const exists = params.dl === "exists";
+    dialog(exists ? "既にあるユーザー名です" : "ユーザー名を変えますか？",
+      exists ? "「taro01」の記録が既にあります。このユーザー名に切り替えると、その記録が表示されます。今の「k3x9q2」の記録は引き継がれません。"
+             : "「taro01」は新しいユーザー名です。今の「k3x9q2」の記録は引き継がれず、記録が空の状態から始まります。元のユーザー名に戻せば、今の記録はまた見られます。",
+      exists ? "切り替える" : "変更する", false, () => toast("ユーザー名を変えました"));
+  } else if (id === "DL-02") {
+    if (current !== "SC-02") { stack = ["SC-02"]; show("SC-02"); }
+    dialog("新しい会話を始めますか？", "AI はこれまでの会話を踏まえずに答えます。記録は残ります。", "始める", false, () => toast("新しい会話を始めました"));
+  } else if (id === "DL-01") {
+    const kind = opts.dl || params.dl || "conv";
+    params.dl = kind;
+    if (kind === "conv" && current !== "SC-07") { stack = ["SC-05", "SC-06", "SC-07"]; show("SC-07"); }
+    if (kind === "trip" && current !== "SC-06") { stack = ["SC-05", "SC-06"]; show("SC-06"); }
+    if (kind === "memo" && current !== "SC-19") { params.memoId = "m1"; states["SC-19"] = "edit"; stack = ["SC-05", "SC-06", "SC-19"]; show("SC-19"); }
+    if (kind === "key" && current !== "SC-13") { stack = ["SC-09", "SC-13"]; show("SC-13"); }
+    if (kind === "rec" && current !== "SC-12") { stack = ["SC-09", "SC-12"]; show("SC-12"); }
+        const map = {
+      conv: ["この会話を削除しますか？", "質問・回答・メモが削除されます。元に戻せません。", () => back()],
+      trip: ["この走行を削除しますか？", `ルートと走行のメモが削除されます。質問は日ごとの記録に残ります。元に戻せません。`, () => { stack = ["SC-05"]; show("SC-05"); }],
+      memo: ["この地点メモを削除しますか？", "メモが削除されます。元に戻せません。", () => back()],
+      rec: ["録音をすべて消しますか？", "端末の音声だけを消します。文字の記録は残ります。", () => toast("録音を消しました")],
+      key: ["接続キーを削除しますか？", "質問できなくなります。記録は残ります。", () => toast("キーを削除しました")]
+    }[kind];
+    dialog(map[0], map[1], "削除", true, map[2]);
+  }
+  renderSpec(id); renderNav(id); renderStateBar(id);
+}
+function dialog(title, body, ok, danger, fn) {
+  $("#dlTitle").textContent = title; $("#dlBody").textContent = body;
+  const b = $("#dlOk"); b.textContent = ok; b.className = "btn sm " + (danger ? "danger-fill" : "primary");
+  b.onclick = () => { closeOverlays(); renderAfterClose(); fn && fn(); };
+  $("#ovDialog").classList.add("show");
+}
+function renderAfterClose() { renderSpec(current); renderNav(current); renderStateBar(current); }
+
+// ===== Side panels =====
+function renderNav(active) {
+  $("#screenNav").innerHTML = NAV_GROUPS.map(g => `<h2>${g.title}</h2>` + g.items.map(id =>
+    `<button data-jump="${id}" aria-current="${id === active}"><span class="sid">${id}</span><span>${SPEC[id].name}</span></button>`).join("")).join("");
+}
+function renderStateBar(id) {
+  const spec = SPEC[id]; const bar = $("#stateBar");
+  bar.dataset.for = id;
+  if (!spec.states.length) { bar.innerHTML = '<span class="lbl">この画面に切り替える状態はありません</span>'; return; }
+  const cur = OVERLAYS.includes(id) ? params.dl : states[id];
+  bar.innerHTML = '<span class="lbl">状態:</span>' + spec.states.map(([k, l]) =>
+    `<button class="chip" data-state-set="${k}" aria-pressed="${k === cur}">${l}</button>`).join("");
+}
+function renderSpec(id) {
+  const s = SPEC[id];
+  $("#spec").innerHTML = `<div class="sid">${id}</div><h2>${s.name}</h2><p class="role">${s.role}</p><div class="small" style="color:var(--page-muted)">仕様メモ（画面の細かな振る舞い）</div>${s.body}`;
+  renderStateBar(id);
+}
+
+// ===== Screen renderers =====
+let convoTimer = null;
+function render(id) {
+  clearInterval(convoTimer);
+  ({ "SC-01": renderSetup, "SC-02": renderHome, "SC-03": renderConvo, "SC-05": renderList, "SC-06": renderTrip, "SC-15": renderDay,
+     "SC-07": renderConv, "SC-08": renderMemo, "SC-19": renderPointMemo, "SC-10": renderReturn, "SC-12": renderRec }[id] || (() => {}))();
+}
+
+function renderSetup() {
+  const order = ["perm", "key", "button", "return"];
+  const i = order.indexOf(states["SC-01"]);
+  $$("#setupSteps i").forEach((el, k) => el.classList.toggle("on", k <= i));
+  $("#setupPrev").hidden = i === 0;
+  $("#setupNext").textContent = i === 3 ? "はじめる" : "次へ";
+  $("#setupPrev").onclick = () => setState("SC-01", order[i - 1]);
+  $("#setupNext").onclick = () => { if (i === 3) { stack = ["SC-02"]; show("SC-02"); } else setState("SC-01", order[i + 1]); };
+}
+
+function renderHome() {
+  const st = states["SC-02"];
+  const sb = $("#sbRec");
+  sb.hidden = st === "idle";
+  sb.textContent = st === "paused" ? "⏸" : "●REC";
+}
+
+function renderConvo() {
+  const st = states["SC-03"];
+  const labels = { recording: "✕ 送らずにやめる", micwarn: "✕ 送らずにやめる", waiting: "✕ 待つのをやめる", speaking: "■ 読み上げを止める", offline: "閉じる（5秒で自動で閉じます）" };
+  $("#convoCancel").textContent = labels[st];
+  $('.screen[data-id="SC-03"]').dataset.state = st === "micwarn" ? "recording" : st;
+  $("#convoCancel").onclick = () => { stack = ["SC-02"]; show("SC-02"); toast(st === "speaking" ? "読み上げを止めました" : "やめました"); };
+  $("#convoMain").onclick = () => {
+    if (st === "recording" || st === "micwarn") setState("SC-03", "waiting");
+    else if (st === "speaking" || st === "offline") { stack = ["SC-02"]; show("SC-02"); }
+  };
+  if (st === "recording") {
+    let r = 20; $("#convoRemain").textContent = `あと ${r}`;
+    convoTimer = setInterval(() => { r--; $("#convoRemain").textContent = `あと ${r}`; if (r <= 0) setState("SC-03", "waiting"); }, 1000);
+  } else if (st === "offline") {
+    let c = 5;
+    convoTimer = setInterval(() => { c--; $("#convoCancel").textContent = `閉じる（${c}秒で自動で閉じます）`; if (c <= 0) { stack = ["SC-02"]; show("SC-02"); } }, 1000);
+  } else if (st === "waiting") {
+    let w = 0; $("#convoWait").textContent = `${w} 秒`;
+    convoTimer = setInterval(() => { w++; $("#convoWait").textContent = `${w} 秒`; if (w >= 6) setState("SC-03", "speaking"); }, 1000);
+  }
+}
+
+function renderList() {
+  const mode = states["SC-05"];
+  let html = `<div class="seg-tabs"><button data-list-mode="rides" aria-pressed="${mode === "rides"}">走行</button><button data-list-mode="days" aria-pressed="${mode === "days"}">日ごと</button></div>
+    <button class="sync-pill" data-go="SC-14"><span class="dot" style="background:var(--ok)"></span><span class="grow">すべてクラウドに保存済み</span>${CHEV}</button>`;
+  html += `<div class="section-title">2026年10月</div><div class="list">`;
+  if (mode === "rides") {
+    html += RIDES.map(r => {
+      const qs = rideQs(r.id);
+      const pauses = r.segments.length - 1;
+      return `<button class="list-item" data-go-trip="${r.id}">
+        <div class="grow"><div class="t">${esc(r.title)}${r.memo ? " 📝" : ""}</div>
+          <div class="s">${rideDateLabel(r)} · ${rideSpan(r)}</div>
+          <div class="s">${r.dist} km · ${r.moving} · 質問 ${qs.length}${pauses ? ` · ⏸ ${pauses}` : ""}</div></div>${CHEV}</button>`;
+    }).join("");
+  } else {
+    html += allDays().map(d => `<button class="list-item" data-go-day="${d}">
+        <div class="grow"><div class="t">${fmtDay(d)}</div></div><span class="val">質問 ${dayQs(d).length}${dayMemos(d).length ? ` · メモ ${dayMemos(d).length}` : ""}</span>${CHEV}</button>`).join("");
+  }
+  html += `</div>`;
+  $("#listBody").innerHTML = html;
+  decorate($("#listBody"));
+}
+
+// Shared: question rows with context separators.
+function qRow(q, n, from) {
+  return `<button class="tl-item" data-go-conv="${q.id}|${from}"><span class="num">${n}</span>
+    <div class="grow"><div class="small muted">${q.t} · ${esc(shortAddr(q.addr))}${q.memo ? " · 📝" : ""}${q.offline ? " · 📵" : ""}</div><div class="q"${q.offline ? ' style="color:var(--muted);font-weight:400"' : ""}>${esc(questionText(q))}</div></div>${CHEV}</button>`;
+}
+const ctxSep = '<div class="ctx-sep">↻ ここから新しい会話</div>';
+
+let selPin = {};
+// Pins for questions (numbered, orange) and point memos (📝, teal) share one selection per map.
+function memoIcon(n, sel) {
+  return L.divIcon({ className: "", html: `<div class="pin memo${sel ? " sel" : ""}"><span>${n}</span></div>`, iconSize: sel ? [36, 36] : [30, 30], iconAnchor: sel ? [2, 34] : [2, 28] });
+}
+function attachPins(mapId, cardId, qs, memos, from) {
+  const m = maps[mapId];
+  m._items = [
+    ...qs.map((q, i) => ({ kind: "q", obj: q, n: i + 1 })),
+    ...memos.map((mm, i) => ({ kind: "m", obj: mm, n: i + 1 }))
+  ];
+  const iconOf = (it, sel) => it.kind === "q" ? pinIcon(it.n, sel) : memoIcon(it.n, sel);
+  m._items.forEach((it, k) => {
+    it.marker = L.marker(pos(it.obj), { icon: iconOf(it, false), zIndexOffset: it.kind === "q" ? 100 : 50 }).addTo(m._layer);
+    it.marker.on("click", e => {
+      L.DomEvent.stopPropagation(e);
+      const s = selPin[mapId]; if (s != null) m._items[s].marker.setIcon(iconOf(m._items[s], false));
+      selPin[mapId] = k; it.marker.setIcon(iconOf(it, true));
+      const card = $("#" + cardId);
+      delete card.dataset.goConv; delete card.dataset.goMemo;
+      if (it.kind === "q") {
+        const q = it.obj;
+        card.innerHTML = `<div class="row" style="gap:8px"><span class="num">${it.n}</span><span class="small muted">${q.t} · ${esc(q.addr)}</span></div><div class="q">${esc(questionText(q))}</div><div class="a">${esc(answerText(q))}</div><div class="small" style="color:var(--accent);font-weight:700;margin-top:4px">詳しく見る ›</div>`;
+        card.dataset.goConv = `${q.id}|${from}`;
+      } else {
+        const mm = it.obj;
+        card.innerHTML = `<div class="row" style="gap:8px"><span class="num memo">${it.n}</span><span class="small muted">${mm.t} · ${esc(mm.addr)} · 📝 地点メモ</span></div><div class="q" style="font-weight:400">${esc(mm.text)}</div><div class="small" style="color:var(--memo);font-weight:700;margin-top:4px">開く ›</div>`;
+        card.dataset.goMemo = mm.id;
+      }
+      card.hidden = false;
+    });
+  });
+  m.off("click").on("click", () => {
+    $("#" + cardId).hidden = true;
+    const s = selPin[mapId]; if (s != null) m._items[s].marker.setIcon(iconOf(m._items[s], false)); selPin[mapId] = null;
+  });
+}
+
+function memoRow(mm, n) {
+  return `<button class="tl-item" data-go-memo="${mm.id}"><span class="num memo">${n}</span>
+    <div class="grow"><div class="small muted">${mm.t} · ${esc(shortAddr(mm.addr))} · 📝 地点メモ${mm.via === "voice" ? "（声）" : ""}</div><div class="q" style="font-weight:400">${esc(mm.text)}</div></div>${CHEV}</button>`;
+}
+// Merge questions and point memos in time order; questions keep their own numbering.
+function timelineHtml(qs, memos, from) {
+  const items = [...qs.map(q => ({ t: q.t, q })), ...memos.map(mm => ({ t: mm.t, mm }))].sort((a, b) => a.t.localeCompare(b.t));
+  let n = 0, html = "";
+  items.forEach(it => {
+    if (it.q) { n = qs.indexOf(it.q) + 1; if (it.q.newCtx) html += ctxSep; html += qRow(it.q, n, from); }
+    else html += memoRow(it.mm, memos.indexOf(it.mm) + 1);
+  });
+  return html;
+}
+
+function renderTrip() {
+  const r = rideById(params.trip); const qs = rideQs(r.id); const memos = rideMemos(r.id);
+  $("#tripTitle").textContent = r.title;
+  $("#pinCard").hidden = true; selPin.tripMap = null;
+  const pauses = r.segments.slice(1).map((s, i) => ({ from: r.segments[i].end, to: s.start, day: s.day, prevDay: r.segments[i].day }));
+  const pauseMin = pauses.reduce((a, p) => a + (p.day === p.prevDay ? minutes(p.from, p.to) : 0), 0);
+  let html = `<div class="grabber"></div>
+    <div class="card"><div class="small muted">${rideDateLabel(r)} · ${rideSpan(r)}</div>
+      <div class="stats" style="margin-top:6px"><div class="stat"><b>${r.moving}</b><span>走行時間</span></div><div class="stat"><b>${r.dist}<small style="font-size:12px"> km</small></b><span>距離</span></div><div class="stat"><b>${qs.length}</b><span>質問</span></div></div>
+      ${pauses.length ? `<div class="small muted" style="margin-top:6px">⏸ 一時停止 ${pauses.length}回${pauseMin ? `（${pauseMin}分）` : ""} · 走行時間に含めません</div>` : ""}
+      ${memos.length ? `<div class="small muted">📝 地点メモ ${memos.length}件</div>` : ""}
+    </div>`;
+  html += r.memo
+    ? `<div class="memo-box" data-act="tripMemo" style="cursor:pointer"><div class="h">走行のメモ</div>${esc(r.memo)}</div>`
+    : `<button class="btn tonal block" data-act="tripMemo">＋ 走行のメモ</button>`;
+  // Timeline: day headers, questions, point memos, pauses.
+  const multiDay = rideDays(r).length > 1;
+  html += `<div class="section-title">時系列</div><div class="list">`;
+  r.segments.forEach((s, si) => {
+    if (si > 0) {
+      const p = pauses[si - 1];
+      html += `<div class="pause-sep">⏸ 一時停止 ${p.from}〜${p.day !== p.prevDay ? fmtDay(p.day, false) + " " : ""}${p.to}${p.day === p.prevDay ? `（${minutes(p.from, p.to)}分）` : ""}</div>`;
+    }
+    if (multiDay && (si === 0 || s.day !== r.segments[si - 1].day)) html += `<div class="day-sep">${fmtDay(s.day)}</div>`;
+    const segQs = qs.filter(q => q.at[0] === si), segMs = memos.filter(mm => mm.at[0] === si);
+    const items = [...segQs.map(q => ({ t: q.t, q })), ...segMs.map(mm => ({ t: mm.t, mm }))].sort((a, b) => a.t.localeCompare(b.t));
+    items.forEach(it => {
+      if (it.q) { if (it.q.newCtx) html += ctxSep; html += qRow(it.q, qs.indexOf(it.q) + 1, "ride"); }
+      else html += memoRow(it.mm, memos.indexOf(it.mm) + 1);
+    });
+  });
+  html += `</div>`;
+  $("#tripBody").innerHTML = html;
+  decorate($("#tripBody"));
+  $("#tripMenuBtn").onclick = () => $("#ovMenu").classList.add("show");
+  const tq = $("#pinToggle"), tm = $("#memoToggle");
+  tq.setAttribute("aria-pressed", String(showPins)); tm.setAttribute("aria-pressed", String(showMemos));
+  tq.onclick = () => { showPins = !showPins; renderTrip(); };
+  tm.onclick = () => { showMemos = !showMemos; renderTrip(); };
+  setTimeout(() => {
+    const m = makeMap("tripMap"); if (!m) return;
+    m.invalidateSize(); m._layer.clearLayers();
+    const pts = drawRide(m._layer, r, { ends: true });
+    attachPins("tripMap", "pinCard", showPins ? qs : [], showMemos ? memos : [], "ride");
+    m.fitBounds(pts, { padding: [36, 36], maxZoom: 15 });
+  }, 30);
+}
+
+function renderDay() {
+  const d = params.day; const qs = dayQs(d); const memos = dayMemos(d);
+  $("#dayTitle").textContent = fmtDay(d);
+  $("#dayPinCard").hidden = true; selPin.dayMap = null;
+  let html = `<div class="grabber"></div><div class="section-title">質問 ${qs.length}${memos.length ? ` · 地点メモ ${memos.length}` : ""}</div><div class="list">`;
+  html += timelineHtml(qs, memos, "day");
+  html += `</div>`;
+  $("#dayBody").innerHTML = html;
+  decorate($("#dayBody"));
+  setTimeout(() => {
+    const m = makeMap("dayMap"); if (!m) return;
+    m.invalidateSize(); m._layer.clearLayers();
+    attachPins("dayMap", "dayPinCard", qs, memos, "day");
+    const pts = [...qs.map(pos), ...memos.map(pos)];
+    if (pts.length > 1) m.fitBounds(pts, { padding: [40, 40], maxZoom: 15 }); else m.setView(pts[0], 14);
+  }, 30);
+}
+
+// Point memo editor (new from home, or an existing memo from the records).
+let pmKeep = false;  // keep the text being edited while switching voice input on/off
+function renderPointMemo() {
+  const st = states["SC-19"];
+  const mm = params.memoId ? memoById(params.memoId) : null;
+  const isNew = !mm;
+  if (!pmKeep) $("#pmText").value = mm ? mm.text : "";
+  $("#pmWhen").textContent = mm ? `${fmtDay(mm.day)} ${mm.t}` : "10月16日（金） 10:24 · 今いる地点";
+  $("#pmWhere").textContent = "📍 " + (mm ? mm.addr : "静岡県御殿場市新橋");
+  const home = states["SC-02"];
+  $("#pmRide").textContent = mm
+    ? (params.memoFrom === "day" ? "日ごとの記録の地点メモ"
+      : mm.ride ? `走行「${rideById(mm.ride).title}」の記録中に書いたメモ` : "走行を記録していないときに書いたメモ")
+    : (home === "idle" ? "走行を記録していません。日ごとの記録に残ります"
+      : home === "paused" ? "一時停止中です。日ごとの記録に残ります（走行には入りません）"
+      : "日ごとの記録に残り、走行「箱根から御殿場へ」にも入ります");
+  $("#pmDelete").hidden = isNew || st === "voice";
+  const v = $("#pmVoice");
+  v.disabled = st === "offline";
+  v.textContent = st === "voice" ? "■ 止めて文字にする" : "🎤 声で入力";
+  v.style.background = st === "voice" ? "var(--rec)" : ""; v.style.color = st === "voice" ? "#fff" : "";
+  v.onclick = () => {
+    if (st === "voice") {
+      const ta = $("#pmText");
+      ta.value = (ta.value ? ta.value + "\n" : "") + "（声から）料金所の手前の展望スペース、バイクを停めやすい。";
+      states["SC-19"] = isNew ? "new" : "edit";
+    } else states["SC-19"] = "voice";
+    pmKeep = true; applyState("SC-19"); renderPointMemo(); renderStateBar("SC-19"); pmKeep = false;
+  };
+}
+
+function convList() { const q = qById(params.conv); return params.from === "day" ? dayQs(q.day) : rideQs(q.ride); }
+function renderConv() {
+  const q = qById(params.conv);
+  if (params.from === "ride" && !q.ride) params.from = "day";
+  const list = convList(); const i = list.indexOf(q);
+  states["SC-07"] = q.offline ? "offline" : (params.from === "day" ? "day" : "ride");
+  renderStateBar("SC-07");
+  $("#convTitle").textContent = params.from === "day" ? `${fmtDay(q.day, false)} ${i + 1} / ${list.length}` : `会話 ${i + 1} / ${list.length}`;
+  const prev = $("#convPrev"), next = $("#convNext");
+  prev.disabled = i === 0; next.disabled = i === list.length - 1;
+  prev.style.opacity = i === 0 ? .3 : 1; next.style.opacity = i === list.length - 1 ? .3 : 1;
+  prev.onclick = () => { if (i > 0) { params.conv = list[i - 1].id; renderConv(); } };
+  next.onclick = () => { if (i < list.length - 1) { params.conv = list[i + 1].id; renderConv(); } };
+  const ride = params.from === "ride" ? rideById(q.ride) : null;
+  const memo = q.memo
+    ? `<div class="memo-box"><div class="row between"><span class="h">メモ</span><button class="btn tonal sm" data-act="convMemo" style="min-height:32px">編集</button></div>${esc(q.memo)}</div>`
+    : `<button class="btn tonal block" data-act="convMemo">＋ メモを追加</button>`;
+  $("#convBody").innerHTML = `
+    <div class="minimap" style="height:150px;cursor:default"><div class="map" id="convMap" style="position:absolute;inset:0"></div></div>
+    <dl class="meta-grid card" style="margin:0">
+      <dt>日時</dt><dd>${fmtDay(q.day)} ${q.t}</dd>
+      <dt>場所</dt><dd>${esc(q.addr)}</dd>
+      <dt>進行方向</dt><dd>${q.dir ? `${q.dir}へ走行中（右手 ${q.right}・左手 ${q.left}）` : "停車中"}</dd>
+      <dt>入力</dt><dd>${q.via === "text" ? "⌨ 文字で質問" : "🎤 声で質問"}</dd>
+      <dt>会話</dt><dd>${q.offline ? "会話の文脈には入れていない" : `${q.ctx}問目${q.newCtx || q.ctx === 1 ? "（新しい会話の始まり）" : ""}`}</dd>
+    </dl>
+    ${q.offline ? `<div class="card"><b>📵 通信できず、質問できなかった</b><div class="small muted" style="margin-top:4px">この地点で質問しようとしたことだけを記録しています。質問の音声・内容は残していません。何を聞きたかったかはメモに書き残せます。</div></div>`
+      : `<div><div class="who" style="text-align:right">あなた</div><div class="bubble q">${esc(q.q)}</div></div>
+    <div><div class="who">AI</div><div class="bubble a">${esc(q.a)}</div></div>`}
+    ${memo}
+    <button class="btn danger block" data-overlay="DL-01" data-dl="conv">この会話を削除</button>`;
+  decorate($("#convBody"));
+  $('.screen[data-id="SC-07"]').scrollTop = 0;
+  setTimeout(() => {
+    const m = makeMap("convMap"); if (!m) return;
+    m.invalidateSize(); m._layer.clearLayers();
+    if (ride) drawRide(m._layer, ride, { faint: true, day: q.day });
+    L.marker(pos(q), { icon: pinIcon(i + 1, true) }).addTo(m._layer);
+    m.setView(pos(q), 14);
+  }, 30);
+}
+
+function renderMemo() {
+  const r = rideById(params.trip);
+  if (params.memo === "trip") { $("#memoTarget").textContent = `走行のメモ · ${r.title}`; $("#memoText").value = r.memo || ""; }
+  else { const q = qById(params.conv); $("#memoTarget").textContent = `会話 · ${fmtDay(q.day, false)} ${q.t} ${shortAddr(q.addr)}`; $("#memoText").value = q.memo || ""; }
+}
+
+function appRow(a, opts = {}) {
+  const sel = appState.current === a.pkg;
+  return `<div class="radio-item" style="padding-right:4px"><button class="row grow" data-pick="${a.pkg}" style="border:0;background:transparent;cursor:pointer;text-align:left;padding:0;color:inherit">
+    <span class="radio${sel ? " on" : ""}"></span><span class="app-ico" style="background:${a.color}">${esc(a.name[0])}</span>
+    <span class="grow"><span style="display:block;font-weight:600">${esc(a.name)}</span><span class="small muted" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.pkg}</span></span></button>
+    ${opts.removable ? `<button class="x-btn" data-unrecent="${a.pkg}" aria-label="最近の一覧から外す">✕</button>` : ""}</div>`;
+}
+function updateReturnVal() {
+  const label = { send: "すぐ戻る", answer: "回答で戻る", spoken: "読み上げ後に戻る" }[appState.timing];
+  $("#setReturnVal").textContent = appState.on ? `${APPS.find(a => a.pkg === appState.current).name} · ${label}` : "戻らない";
+}
+function renderReturn() {
+  appState.on = states["SC-10"] !== "off";
+  const cur = APPS.find(a => a.pkg === appState.current);
+  let html = `<div class="card row"><div class="grow"><div style="font-weight:700;font-size:16px">応答後にアプリへ戻る</div><div class="small muted">インカムのボタンで質問したとき、下のアプリへ戻ります</div></div>
+    <button class="switch" role="switch" aria-checked="${appState.on}" id="retSwitch" aria-label="応答後にアプリへ戻る"></button></div>`;
+  if (!appState.on) {
+    html += `<div class="small muted" style="padding:0 4px">戻らない設定です。選んでいたアプリ（${esc(cur ? cur.name : "なし")}）は覚えています。</div>`;
+  } else {
+    const timings = [["send", "送ったらすぐ戻る", "回答待ち・読み上げはナビを表示したまま裏で行う（既定）"], ["answer", "回答が届いたら戻る", "回答待ちの画面を出し、読み上げは裏で行う"], ["spoken", "読み上げが終わったら戻る", "回答待ち・読み上げ中の画面を出す"]];
+    html += `<div class="section-title">戻るタイミング</div><div class="list">${timings.map(([k, l, d]) =>
+      `<button class="radio-item" data-timing="${k}"><span class="radio${appState.timing === k ? " on" : ""}"></span><div><div style="font-weight:600">${l}</div><div class="small muted">${d}</div></div></button>`).join("")}</div>`;
+    html += `<div class="section-title">現在の戻り先</div>
+      <div class="card row">${cur ? `<span class="app-ico" style="background:${cur.color};width:44px;height:44px;font-size:18px">${esc(cur.name[0])}</span><div class="grow"><div style="font-weight:700;font-size:17px">${esc(cur.name)}</div><div class="small muted">${cur.pkg}</div></div>` : `<div class="muted">未設定</div>`}</div>`;
+    const recent = appState.recent.map(p => APPS.find(a => a.pkg === p)).filter(Boolean);
+    if (recent.length && !appState.query) html += `<div class="section-title">最近選んだアプリ</div><div class="list">${recent.map(a => appRow(a, { removable: true })).join("")}</div>`;
+    const q = appState.query.trim().toLowerCase();
+    const all = [...APPS].sort((a, b) => a.name.localeCompare(b.name, "ja")).filter(a => !q || a.name.toLowerCase().includes(q) || a.pkg.includes(q));
+    html += `<div><label class="field-label" for="appQ" style="margin-top:6px">アプリを絞り込む</label>
+      <div style="position:relative"><input class="input" id="appQ" placeholder="アプリ名を入力" value="${esc(appState.query)}">${appState.query ? `<button class="x-btn" id="appQx" style="position:absolute;right:4px;top:4px" aria-label="消す">✕</button>` : ""}</div></div>
+      <div class="section-title">すべてのアプリ</div>
+      <div class="list">${all.length ? all.map(a => appRow(a)).join("") : `<div class="muted" style="padding:14px">該当するアプリがありません</div>`}</div>`;
+  }
+  $("#returnBody").innerHTML = html;
+  $("#retSwitch").onclick = () => { setState("SC-10", appState.on ? "off" : "on"); updateReturnVal(); };
+  $$("[data-timing]", $("#returnBody")).forEach(b => b.onclick = () => { appState.timing = b.dataset.timing; updateReturnVal(); renderReturn(); });
+  const qi = $("#appQ");
+  if (qi) qi.oninput = e => { appState.query = e.target.value; const p = e.target.selectionStart; renderReturn(); const n = $("#appQ"); n.focus(); n.setSelectionRange(p, p); };
+  const qx = $("#appQx"); if (qx) qx.onclick = () => { appState.query = ""; renderReturn(); };
+  $$("[data-pick]", $("#returnBody")).forEach(b => b.onclick = () => {
+    appState.current = b.dataset.pick;
+    appState.recent = [b.dataset.pick, ...appState.recent.filter(p => p !== b.dataset.pick)].slice(0, 5);
+    updateReturnVal();
+    renderReturn(); toast("戻り先を変更しました");
+  });
+  $$("[data-unrecent]", $("#returnBody")).forEach(b => b.onclick = () => { appState.recent = appState.recent.filter(p => p !== b.dataset.unrecent); renderReturn(); });
+}
+
+function renderRec() {
+  const st = states["SC-12"];
+  const trial = {
+    idle: `<button class="btn primary block" id="trialBtn" style="min-height:60px">● 試し録りする</button><div class="small muted" style="margin-top:6px">今の設定（用途: 音声認識）で、インカムのマイクで録ります。送信はしません。</div>`,
+    trial: `<button class="btn block" id="trialBtn" style="min-height:60px;background:var(--rec);color:#fff">■ 止めて再生する（あと 6 秒）</button><div class="small muted" style="margin-top:6px">インカムのボタンでも止められます</div>`,
+    play: `<div class="audio"><button class="play" id="trialBtn">${ICON_PLAY}</button><div class="grow"><div style="font-weight:600">試し録り · 再生中</div><div class="bar" style="margin:6px 0;background:linear-gradient(90deg,var(--accent) 40%,var(--line) 40%)"></div><div class="small muted">0:02 / 0:05 · インカム · 音声認識</div></div></div>`
+  }[st];
+  const rows = AUDIO.map((q, k) => {
+    const empty = k === 4;
+    return `<div class="rec-entry"><button class="play" aria-label="再生" style="width:40px;height:40px">${ICON_PLAY}</button>
+      <div class="grow"><div class="small muted">${fmtDay(q.day, false)} ${q.t} · 0:${String(q.len).padStart(2, "0")} · ${q.mic} · 音声認識</div>
+      <div class="tr${empty ? " empty" : ""}">${empty ? "聞き取れませんでした" : "「" + esc(q.q) + "」"}</div></div></div>`;
+  }).join("");
+  $("#recBody").innerHTML = `
+    <div class="section-title">試し録り</div><div class="card">${trial}</div>
+    <div class="section-title">送った録音（直近10件）</div>
+    <div class="small muted" style="padding:0 4px">録音と、サーバーが聞き取った文を並べています。11件目を録ると最も古い音声を消します。文字の記録は消えません。</div>
+    <div class="list">${rows}</div>
+    <button class="btn danger block" data-overlay="DL-01" data-dl="rec">録音をすべて消す</button>`;
+  $("#trialBtn").onclick = () => setState("SC-12", st === "idle" ? "trial" : st === "trial" ? "play" : "idle");
+}
+
+// ===== Global events =====
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-go-memo],[data-fullmap],[data-jump],[data-go],[data-go-trip],[data-go-day],[data-go-conv],[data-list-mode],[data-tab],[data-act],[data-overlay],[data-close],[data-state-set],[data-theme-set],[data-step],.seg-in button,[data-group=src] .radio-item");
+  if (!t) return;
+  if (t.dataset.themeSet) {
+    const v = t.dataset.themeSet;
+    if (v === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = v;
+    $$("#themeSeg button").forEach(b => b.setAttribute("aria-pressed", String(b === t)));
+    return;
+  }
+  if (t.dataset.fullmap) return toggleFullMap(t);
+  if (t.dataset.jump) return jump(t.dataset.jump);
+  if (t.dataset.stateSet) return setState($("#stateBar").dataset.for, t.dataset.stateSet);
+  if (t.dataset.listMode) return setState("SC-05", t.dataset.listMode);
+  if (t.dataset.tab) return tab(t.dataset.tab);
+  if (t.hasAttribute("data-close")) { closeOverlays(); renderAfterClose(); return; }
+  if (t.dataset.overlay) return openOverlay(t.dataset.overlay, { dl: t.dataset.dl });
+  if (t.dataset.goTrip) { params.trip = t.dataset.goTrip; return go("SC-06"); }
+  if (t.dataset.goMemo) { params.memoId = t.dataset.goMemo; params.memoFrom = current === "SC-15" ? "day" : "ride"; states["SC-19"] = "edit"; return go("SC-19"); }
+  if (t.dataset.goDay) { params.day = t.dataset.goDay; return go("SC-15"); }
+  if (t.dataset.goConv) { const [qid, from] = t.dataset.goConv.split("|"); params.conv = qid; params.from = from; const q = qById(qid); if (q.ride) params.trip = q.ride; params.day = q.day; return go("SC-07"); }
+  if (t.dataset.go) { if (t.dataset.stateTo) states[t.dataset.go] = t.dataset.stateTo; closeOverlays(); return go(t.dataset.go); }
+  if (t.dataset.step) { const el = $("#maxSec"); const v = Math.min(60, Math.max(10, parseInt(el.textContent, 10) + +t.dataset.step)); el.textContent = v + "秒"; return; }
+  if (t.matches(".seg-in button")) { $$("button", t.parentElement).forEach(b => b.setAttribute("aria-pressed", String(b === t))); return; }
+  if (t.matches("[data-group=src] .radio-item")) { $$(".radio", t.parentElement).forEach(r => r.classList.remove("on")); $(".radio", t).classList.add("on"); return; }
+  const act = t.dataset.act;
+  if (act === "back") return back();
+  if (act === "startTrip") { if (t.disabled) return; closeOverlays(); states["SC-02"] = "riding"; show("SC-02"); toast("走行の記録を始めました"); return; }
+  if (act === "pauseTrip") { states["SC-02"] = "paused"; show("SC-02"); toast("一時停止しました（ルートを記録しません）"); return; }
+  if (act === "resumeTrip") { states["SC-02"] = "riding"; show("SC-02"); toast("走行の記録を再開しました"); return; }
+  if (act === "endTrip") { closeOverlays(); states["SC-02"] = "idle"; params.trip = "t1"; stack = ["SC-05", "SC-06"]; show("SC-06"); toast("走行を保存しました"); return; }
+  if (act === "homeTripMemo") { params.memo = "trip"; params.trip = "t1"; stack = ["SC-02"]; return go("SC-08"); }
+  if (act === "tripMemo") { closeOverlays(); params.memo = "trip"; return go("SC-08"); }
+  if (act === "newMemo") { params.memoId = null; states["SC-19"] = "new"; return go("SC-19"); }
+  if (act === "convMemo") { params.memo = "conv"; return go("SC-08"); }
+  if (act === "renameTrip") { closeOverlays(); toast("名前の入力欄を出す（SC-04 と同じ形）"); return; }
+  if (act === "deleteTrip") { closeOverlays(); return openOverlay("DL-01", { dl: "trip" }); }
+});
+
+// Full-screen map: the map area covers the whole screen and the tab bar hides.
+function toggleFullMap(btn) {
+  const wrap = btn.closest(".map-wrap"); const scr = btn.closest(".screen");
+  const on = !wrap.classList.contains("full");
+  scr.scrollTop = 0;
+  wrap.classList.toggle("full", on); scr.classList.toggle("has-full", on);
+  $("#tabbar").hidden = on;
+  btn.textContent = on ? "✕" : "⛶";
+  btn.setAttribute("aria-label", on ? "全画面を閉じる" : "地図を全画面で表示");
+  const m = maps[btn.dataset.fullmap]; if (m) setTimeout(() => m.invalidateSize(), 30);
+}
+function exitFullMaps() {
+  $$(".map-wrap.full").forEach(w => { w.classList.remove("full"); const b = $(".map-full-btn", w); b.textContent = "⛶"; });
+  $$(".screen.has-full").forEach(s => s.classList.remove("has-full"));
+}
+
+function jump(id) {
+  closeOverlays();
+  if (OVERLAYS.includes(id)) return openOverlay(id, { dl: id === "DL-01" ? (["trip", "rec", "memo", "key"].includes(params.dl) ? params.dl : "conv") : undefined });
+  const roots = { "SC-01": ["SC-01"], "SC-02": ["SC-02"], "SC-03": ["SC-02", "SC-03"], "SC-05": ["SC-05"], "SC-06": ["SC-05", "SC-06"],
+    "SC-15": ["SC-05", "SC-15"], "SC-19": ["SC-02", "SC-19"], "SC-07": ["SC-05", "SC-06", "SC-07"], "SC-08": ["SC-05", "SC-06", "SC-07", "SC-08"], "SC-09": ["SC-09"] };
+  if (id === "SC-01") states["SC-01"] = "perm";
+  if (id === "SC-07") { params.conv = "q15"; params.from = "ride"; params.trip = "t1"; }
+  if (id === "SC-08") params.memo = "conv";
+  if (id === "SC-19") { params.memoId = null; states["SC-19"] = "new"; }
+  stack = roots[id] || ["SC-09", id];
+  show(id);
+}
+
+// ===== Boot =====
+decorate();
+show("SC-02");
+setInterval(() => {
+  const el = $("#homeElapsed");
+  if (el && states["SC-02"] !== "paused") { const [h, m] = el.textContent.split(":").map(Number); const t = h * 60 + m + 1; el.textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; }
+}, 60000);
+</script>
+</body>
+</html>
