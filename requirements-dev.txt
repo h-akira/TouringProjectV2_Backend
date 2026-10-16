@@ -1,0 +1,5 @@
+boto3>=1.43
+amazon-transcribe==0.6.4
+moto[dynamodb,s3,sqs,ssm]>=5.1
+pytest>=8.0
+openapi-spec-validator>=0.7
