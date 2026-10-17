@@ -728,7 +728,7 @@ button { font: inherit; color: inherit; }
                 <button class="list-item" data-go="SC-10"><div class="lead-ico">↩️</div><div class="grow"><div class="t">応答後に戻るアプリ</div></div><span class="val" id="setReturnVal">Google マップ · すぐ戻る</span><span class="chev" data-chev></span></button>
                 <button class="list-item" data-go="SC-16"><div class="lead-ico">🏍️</div><div class="grow"><div class="t">走行の記録</div></div><span class="val" id="setMaxVal">最長 24時間</span><span class="chev" data-chev></span></button>
                 <button class="list-item" data-go="SC-11"><div class="lead-ico">🎙️</div><div class="grow"><div class="t">録音の設定</div></div><span class="val">上限 20秒 · 合図 2秒</span><span class="chev" data-chev></span></button>
-                <button class="list-item" data-go="SC-20"><div class="lead-ico">🔊</div><div class="grow"><div class="t">回答の音量</div></div><span class="val">+6dB</span><span class="chev" data-chev></span></button>
+                <button class="list-item" data-go="SC-21"><div class="lead-ico">🔊</div><div class="grow"><div class="t">回答の音量</div></div><span class="val">+6dB</span><span class="chev" data-chev></span></button>
               </div>
               <div class="section-title">確認</div>
               <div class="list">
@@ -805,18 +805,18 @@ button { font: inherit; color: inherit; }
             <div class="pad" style="padding-top:0" id="recBody"></div>
           </section>
 
-          <!-- SC-20 Answer volume -->
-          <section class="screen" data-id="SC-20">
+          <!-- SC-21 Answer volume -->
+          <section class="screen" data-id="SC-21">
             <div class="appbar"><button class="iconbtn" data-act="back" aria-label="戻る"></button><h1>回答の音量</h1></div>
             <div class="pad" style="padding-top:0">
               <div class="card">
                 <span class="field-label">回答の音声を上げる量</span>
                 <div class="small muted" style="margin-bottom:10px">ナビの案内や音楽より小さく聞こえるときに上げます。次の質問から変わります</div>
-                <div class="seg-in" data-group="answervol" style="grid-template-columns:repeat(5,1fr)">
-                  <button aria-pressed="false">+0</button><button aria-pressed="false">+3</button><button aria-pressed="true">+6</button><button aria-pressed="false">+9</button><button aria-pressed="false">+12</button>
+                <div class="seg-in" data-group="answervol" style="grid-template-columns:repeat(3,1fr)">
+                  <button aria-pressed="false">+0</button><button aria-pressed="false">+3</button><button aria-pressed="true">+6</button>
                 </div>
               </div>
-              <div class="small muted" style="padding:0 4px">単位は dB です。+6 でおよそ2倍、+12 でおよそ4倍の大きさです。全体が小さいときは、まずスマホのメディアの音量を上げてください。</div>
+              <div class="small muted" style="padding:0 4px">単位は dB です。+6（最大）で、+0 のおよそ2倍の大きさです。それでも小さいときは、スマホのメディアの音量を上げてください。</div>
             </div>
           </section>
 
@@ -1100,10 +1100,10 @@ const NAV_GROUPS = [
   { title: "はじめに", items: ["SC-01"] },
   { title: "ホーム タブ", items: ["SC-02", "SC-03", "SC-17", "SC-04", "SC-19", "DL-02"] },
   { title: "記録 タブ", items: ["SC-05", "SC-06", "SC-15", "SC-07", "SC-08", "DL-01"] },
-  { title: "設定 タブ", items: ["SC-09", "SC-16", "SC-10", "SC-11", "SC-12", "SC-20", "SC-18", "DL-03", "SC-13", "SC-14"] }
+  { title: "設定 タブ", items: ["SC-09", "SC-16", "SC-10", "SC-11", "SC-12", "SC-21", "SC-18", "DL-03", "SC-13", "SC-14"] }
 ];
 const TAB_OF = { "SC-02": "SC-02", "SC-03": "SC-02", "SC-19": "SC-02", "SC-05": "SC-05", "SC-06": "SC-05", "SC-15": "SC-05", "SC-07": "SC-05", "SC-08": "SC-05",
-  "SC-09": "SC-09", "SC-16": "SC-09", "SC-10": "SC-09", "SC-11": "SC-09", "SC-12": "SC-09", "SC-20": "SC-09", "SC-13": "SC-09", "SC-14": "SC-09", "SC-18": "SC-09" };
+  "SC-09": "SC-09", "SC-16": "SC-09", "SC-10": "SC-09", "SC-11": "SC-09", "SC-12": "SC-09", "SC-21": "SC-09", "SC-13": "SC-09", "SC-14": "SC-09", "SC-18": "SC-09" };
 
 const SPEC = {
   "SC-01": { name: "初回セットアップ", role: "ハンズフリーが成立するのに必要な準備を、順に案内する。",
@@ -1170,7 +1170,7 @@ const SPEC = {
 <tr><td>戻るアプリが未設定</td><td>「戻る」なのに未選択</td><td>選ぶと消える。タップで SC-10</td></tr>
 <tr><td>位置の許可が不足</td><td>「常に許可」でない</td><td>許可で消える</td></tr>
 <tr><td>接続キーが無い</td><td>未設定</td><td>設定で消える。タップで SC-13</td></tr>
-<tr><td>メディアの音量が低い</td><td>メディアの音量が最大の1/3未満（回答と合図はメディアの音で鳴る）</td><td>音量を上げると消える</td></tr></table>
+<tr><td>メディアの音量が低い</td><td>メディアの音量が最大の1/3未満（回答と合図はメディアの音で鳴る）。録音中の画面（SC-03）にも出す</td><td>音量を上げると消える。✕ で閉じると、音量を変えるまで出ない（アプリを閉じるまで覚える）</td></tr></table>
 <p class="small">帯は画面の一番上に、黄色で1行だけ出す。同時に出すのは1本だけ（重要な順に1本）で、高さが増えすぎないようにする。</p>` },
 
   "SC-03": { name: "対話", role: "録音中・回答待ち・読み上げ中を画面全体の色で示す。走行中に出る全面の表示。",
@@ -1392,9 +1392,9 @@ const SPEC = {
 <li>声で聞いた質問だけが並ぶ（文字で聞いた質問には音声が無い）。</li>
 <li>「録音をすべて消す」で DL-01（録音）。</li></ul>` },
 
-  "SC-20": { name: "回答の音量", role: "回答の音声を上げる量を選ぶ。", states: [],
+  "SC-21": { name: "回答の音量", role: "回答の音声を上げる量を選ぶ。", states: [],
     body: `<ul>
-<li>+0・+3・+6・+9・+12 dB から選ぶ。既定は +6dB。</li>
+<li>+0・+3・+6 dB から選ぶ。既定は最大の +6dB（音声を作る Polly が +6dB で頭打ちになるため）。</li>
 <li>音量は音声を作るとき（サーバー側）に上げる。質問を送るたびに選んだ量を付けるので、次の質問から変わる。</li>
 <li>端末の音声合成で読む代わりの経路（回答の音声が作れなかったとき）には当たらない。</li>
 <li>スマホのメディアの音量そのものは変えない。低いときはホームの帯で知らせる。</li></ul>` },
