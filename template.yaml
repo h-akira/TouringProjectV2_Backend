@@ -128,7 +128,6 @@ Resources:
           AGENT_REGION: !Ref AgentRegion
           GEO_REGION: !Ref AWS::Region
           POLLY_VOICE_ID: Kazuha
-          POLLY_VOLUME: "+6dB"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref RecordsTable

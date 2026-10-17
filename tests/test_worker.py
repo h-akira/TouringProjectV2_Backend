@@ -39,8 +39,8 @@ class Recorder:
             raise self.agent_error
         return AgentReply(answer=self.answer, usage={"inputTokens": 5}, model_id="m", tools=["nearby_places"], first_event_at=None)
 
-    def synthesize(self, ask_id, text):
-        self.calls.append(("tts", ask_id, text))
+    def synthesize(self, ask_id, text, volume_db):
+        self.calls.append(("tts", ask_id, text, volume_db))
         if self.tts_error:
             raise self.tts_error
         return f"answers/{ask_id}.mp3"
@@ -169,3 +169,17 @@ def test_unexpected_agent_exception_marks_failed(aws):
     worker.process(USER, ASK, rec.steps())
     item = store.get_ask(USER, ASK)
     assert item["status"] == "failed" and item["error"] == "agent_failed"
+
+
+def test_answer_audio_uses_the_stored_volume(aws):
+    put(aws, volumeDb=3)
+    rec = Recorder()
+    worker.process(USER, ASK, rec.steps())
+    assert next(c for c in rec.calls if c[0] == "tts")[3] == 3
+
+
+def test_asks_without_volume_use_the_default(aws):
+    put(aws)
+    rec = Recorder()
+    worker.process(USER, ASK, rec.steps())
+    assert next(c for c in rec.calls if c[0] == "tts")[3] == 6

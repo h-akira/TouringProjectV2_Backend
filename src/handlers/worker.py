@@ -13,6 +13,7 @@ from lib import address, agent, clients, speech, store, transcribe
 from lib.agent import AgentError, AgentReply
 from lib.geo import heading_degrees
 from lib.prompt import agent_location, build_prompt
+from lib.request import DEFAULT_VOLUME_DB
 
 
 @dataclass
@@ -20,7 +21,7 @@ class Steps:
     transcribe: Callable[[bytes], str]
     describe_location: Callable[[float, float], Optional[str]]
     invoke_agent: Callable[[str, Optional[dict], str], AgentReply]
-    synthesize: Callable[[str, str], str]
+    synthesize: Callable[[str, str, int], str]
     now: Callable[[], datetime]
 
 
@@ -113,7 +114,8 @@ def _run(user: str, ask_id: str, item: dict, steps: Steps) -> None:
     answered = {**facts, "answer": reply.answer, "usage": reply.usage, "modelId": reply.model_id, "tools": reply.tools}
 
     try:
-        key = steps.synthesize(ask_id, reply.answer)
+        # Asks accepted before volumeDb existed have none; DynamoDB returns numbers as Decimal.
+        key = steps.synthesize(ask_id, reply.answer, int(item.get("volumeDb", DEFAULT_VOLUME_DB)))
     except Exception as error:  # noqa: BLE001 - the App reads the answer with device TTS
         mark("synthesizedAt")
         log({"event": "tts_error", "askId": ask_id, "error": type(error).__name__})

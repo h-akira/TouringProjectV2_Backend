@@ -36,6 +36,7 @@ def handler(event, context):
         "question": ask.text,
         "location": ask.location,
         "headingSample": ask.heading_sample,
+        "volumeDb": ask.volume_db,
         "timings": {"receivedAt": iso(now)},
     }
     if ask.audio is not None:

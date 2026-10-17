@@ -7,8 +7,13 @@ from lib import speech
 
 
 def test_ssml_is_escaped_and_louder():
-    ssml = speech.build_ssml("A&B <C>", "+6dB")
+    ssml = speech.build_ssml("A&B <C>", 6)
     assert ssml == '<speak><amazon:effect name="drc"><prosody volume="+6dB">A&amp;B &lt;C&gt;</prosody></amazon:effect></speak>'
+
+
+def test_ssml_uses_the_chosen_volume():
+    assert '<prosody volume="+0dB">' in speech.build_ssml("x", 0)
+    assert '<prosody volume="+3dB">' in speech.build_ssml("x", 3)
 
 
 class FakePolly:
@@ -32,11 +37,11 @@ class FakeS3:
 
 def test_synthesize_stores_mp3(monkeypatch):
     monkeypatch.setenv("POLLY_VOICE_ID", "Kazuha")
-    monkeypatch.setenv("POLLY_VOLUME", "+6dB")
     polly, s3 = FakePolly(), FakeS3()
-    key = speech.synthesize("abc", "晴れです。", polly=polly, s3=s3)
+    key = speech.synthesize("abc", "晴れです。", 9, polly=polly, s3=s3)
     assert key == "answers/abc.mp3"
     call = polly.calls[0]
+    assert '<prosody volume="+9dB">' in call["Text"]
     assert (call["TextType"], call["Engine"], call["VoiceId"], call["OutputFormat"], call["LanguageCode"]) == ("ssml", "neural", "Kazuha", "mp3", "ja-JP")
     assert s3.puts[0]["Bucket"] == "test-audio" and s3.puts[0]["Key"] == key and s3.puts[0]["Body"] == b"mp3-bytes"
     assert s3.puts[0]["ContentType"] == "audio/mpeg"
@@ -44,4 +49,4 @@ def test_synthesize_stores_mp3(monkeypatch):
 
 def test_polly_failure_raises():
     with pytest.raises(RuntimeError):
-        speech.synthesize("abc", "x", polly=FakePolly(RuntimeError("down")), s3=FakeS3())
+        speech.synthesize("abc", "x", 6, polly=FakePolly(RuntimeError("down")), s3=FakeS3())
