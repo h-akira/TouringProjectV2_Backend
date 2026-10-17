@@ -66,8 +66,8 @@ def test_bad_user_is_400(aws):
 
 
 def test_volume_is_stored(aws):
-    body = json.loads(call({"text": "Q", "volumeDb": 9})["body"])
-    assert store.get_ask("rider01", body["askId"])["volumeDb"] == 9
+    body = json.loads(call({"text": "Q", "volumeDb": 3})["body"])
+    assert store.get_ask("rider01", body["askId"])["volumeDb"] == 3
 
 
 def test_volume_defaults_when_omitted(aws):
@@ -76,6 +76,6 @@ def test_volume_defaults_when_omitted(aws):
 
 
 def test_bad_volume_is_rejected(aws):
-    result = call({"text": "Q", "volumeDb": 20})
+    result = call({"text": "Q", "volumeDb": 12})
     assert result["statusCode"] == 400
     assert aws.table.scan()["Items"] == []

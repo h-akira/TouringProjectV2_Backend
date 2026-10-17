@@ -16,7 +16,8 @@ PCM_BYTES_PER_SECOND = 16000 * 2  # 16 kHz, mono, 16-bit
 MIN_AUDIO_BYTES = PCM_BYTES_PER_SECOND // 4
 MAX_AUDIO_BYTES = PCM_BYTES_PER_SECOND * 60
 MAX_TEXT_CHARS = 500
-VOLUME_DB_CHOICES = (0, 3, 6, 9, 12)
+# Polly's prosody volume stops at +6 dB (measured), so higher values would not be louder.
+VOLUME_DB_CHOICES = (0, 3, 6)
 DEFAULT_VOLUME_DB = 6
 
 
@@ -120,6 +121,6 @@ def parse_ask(event: dict) -> AskInput:
 
     volume_db = data.get("volumeDb", DEFAULT_VOLUME_DB)
     if isinstance(volume_db, bool) or volume_db not in VOLUME_DB_CHOICES:
-        raise BadRequest("volumeDb must be one of 0, 3, 6, 9, 12")
+        raise BadRequest("volumeDb must be one of 0, 3, 6")
 
     return AskInput(audio, text, _point(data.get("location")), _sample(data.get("headingSample")), conversation_id, int(volume_db))

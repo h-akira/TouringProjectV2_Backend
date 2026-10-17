@@ -159,9 +159,9 @@ components:
           description: 会話を続けるときだけ送る（小文字）。
         volumeDb:
           type: integer
-          enum: [0, 3, 6, 9, 12]
+          enum: [0, 3, 6]
           default: 6
-          description: 回答の音声を上げる量（dB）。利用者が設定で選ぶ。
+          description: 回答の音声を上げる量（dB）。利用者が設定で選ぶ。Polly は +6dB で頭打ちになるので、6 が最大。
     AskAccepted:
       type: object
       required: [askId, conversationId, conversationExpiresAt]

@@ -13,7 +13,7 @@ def test_ssml_is_escaped_and_louder():
 
 def test_ssml_uses_the_chosen_volume():
     assert '<prosody volume="+0dB">' in speech.build_ssml("x", 0)
-    assert '<prosody volume="+12dB">' in speech.build_ssml("x", 12)
+    assert '<prosody volume="+3dB">' in speech.build_ssml("x", 3)
 
 
 class FakePolly:

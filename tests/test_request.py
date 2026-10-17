@@ -106,12 +106,13 @@ def test_volume_defaults_to_six():
     assert parse_ask(event({"text": "Q"})).volume_db == 6
 
 
-@pytest.mark.parametrize("volume", [0, 3, 6, 9, 12])
+@pytest.mark.parametrize("volume", [0, 3, 6])
 def test_volume_choices(volume):
     assert parse_ask(event({"text": "Q", "volumeDb": volume})).volume_db == volume
 
 
-@pytest.mark.parametrize("volume", [-3, 1, 15, "6", None, True, 6.5])
+# Polly's prosody volume stops at +6 dB, so 9 and 12 would sound the same as 6.
+@pytest.mark.parametrize("volume", [-3, 1, 9, 12, "6", None, True, 6.5])
 def test_volume_bad(volume):
     with pytest.raises(BadRequest):
         parse_ask(event({"text": "Q", "volumeDb": volume}))

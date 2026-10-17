@@ -172,10 +172,10 @@ def test_unexpected_agent_exception_marks_failed(aws):
 
 
 def test_answer_audio_uses_the_stored_volume(aws):
-    put(aws, volumeDb=12)
+    put(aws, volumeDb=3)
     rec = Recorder()
     worker.process(USER, ASK, rec.steps())
-    assert next(c for c in rec.calls if c[0] == "tts")[3] == 12
+    assert next(c for c in rec.calls if c[0] == "tts")[3] == 3
 
 
 def test_asks_without_volume_use_the_default(aws):
