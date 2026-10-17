@@ -1,4 +1,5 @@
 """Tests for Polly SSML and storing the answer audio."""
+import array
 import io
 
 import pytest
@@ -6,14 +7,9 @@ import pytest
 from lib import speech
 
 
-def test_ssml_is_escaped_and_louder():
-    ssml = speech.build_ssml("A&B <C>", 6)
-    assert ssml == '<speak><amazon:effect name="drc"><prosody volume="+6dB">A&amp;B &lt;C&gt;</prosody></amazon:effect></speak>'
-
-
-def test_ssml_uses_the_chosen_volume():
-    assert '<prosody volume="+0dB">' in speech.build_ssml("x", 0)
-    assert '<prosody volume="+12dB">' in speech.build_ssml("x", 12)
+def test_ssml_is_escaped_and_compressed():
+    ssml = speech.build_ssml("A&B <C>")
+    assert ssml == '<speak><amazon:effect name="drc">A&amp;B &lt;C&gt;</amazon:effect></speak>'
 
 
 class FakePolly:
@@ -24,7 +20,7 @@ class FakePolly:
         self.calls.append(kwargs)
         if self.error:
             raise self.error
-        return {"AudioStream": io.BytesIO(b"mp3-bytes")}
+        return {"AudioStream": io.BytesIO(array.array("h", [1000, -1000]).tobytes())}
 
 
 class FakeS3:
@@ -35,16 +31,18 @@ class FakeS3:
         self.puts.append(kwargs)
 
 
-def test_synthesize_stores_mp3(monkeypatch):
+def test_synthesize_stores_louder_wav(monkeypatch):
     monkeypatch.setenv("POLLY_VOICE_ID", "Kazuha")
     polly, s3 = FakePolly(), FakeS3()
     key = speech.synthesize("abc", "晴れです。", 9, polly=polly, s3=s3)
-    assert key == "answers/abc.mp3"
+    assert key == "answers/abc.wav"
     call = polly.calls[0]
-    assert '<prosody volume="+9dB">' in call["Text"]
-    assert (call["TextType"], call["Engine"], call["VoiceId"], call["OutputFormat"], call["LanguageCode"]) == ("ssml", "neural", "Kazuha", "mp3", "ja-JP")
-    assert s3.puts[0]["Bucket"] == "test-audio" and s3.puts[0]["Key"] == key and s3.puts[0]["Body"] == b"mp3-bytes"
-    assert s3.puts[0]["ContentType"] == "audio/mpeg"
+    assert (call["TextType"], call["Engine"], call["VoiceId"], call["OutputFormat"], call["SampleRate"], call["LanguageCode"]) == (
+        "ssml", "neural", "Kazuha", "pcm", "16000", "ja-JP")
+    body = s3.puts[0]["Body"]
+    assert s3.puts[0]["Bucket"] == "test-audio" and s3.puts[0]["Key"] == key and s3.puts[0]["ContentType"] == "audio/wav"
+    # +9 dB on a quiet sample: about 2.8 times, inside a WAV file.
+    assert body[:4] == b"RIFF" and array.array("h", body[44:]).tolist() == [2818, -2818]
 
 
 def test_polly_failure_raises():
