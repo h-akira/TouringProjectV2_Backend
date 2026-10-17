@@ -22,7 +22,7 @@ AI は現在地と進行方向を踏まえて答え、質問と回答は走っ�
 | [03_screen_transition.md](03_screen_transition.md) | 画面遷移図 |
 | [04_detailed_requirements.md](04_detailed_requirements.md) | 詳細要件（`US-A-01.001` 形式の、判定できる条件） |
 | [05_technical_policies.md](05_technical_policies.md) | 技術方針（全体構成・各レイヤーの方針・技術選定） |
-| [06_units_definition.md](06_units_definition.md) | ユニットの定義（App・Backend・Agent・CICD の責務） |
+| [06_units_definition.md](06_units_definition.md) | ユニットの定義（Android・Backend・Agent・CICD の責務） |
 | [07_units_contracts.md](07_units_contracts.md) | ユニット間の契約 |
 | [mock/index.html](mock/index.html) | 画面モック（見た目・文言と、画面ごとの仕様メモ） |
 

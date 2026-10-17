@@ -20,10 +20,10 @@
 
 ```mermaid
 flowchart LR
-    I["インカム"] -->|"ボタン・音声"| App["App<br/>Android"]
-    App -->|"質問（音声/文字）＋位置"| BE["Backend<br/>東京"]
-    App -->|"記録の同期"| BE
-    App -->|"地図タイル"| GSI["国土地理院の地図"]
+    I["インカム"] -->|"ボタン・音声"| Android["Android"]
+    Android -->|"質問（音声/文字）＋位置"| BE["Backend<br/>東京"]
+    Android -->|"記録の同期"| BE
+    Android -->|"地図タイル"| GSI["国土地理院の地図"]
     BE -->|"質問＋確定した事実"| AG["Agent<br/>us-east-1"]
     AG --> LLM["AI モデル（Bedrock）"]
     AG --> TOOL["Web 検索・周辺検索"]
@@ -34,7 +34,7 @@ flowchart LR
 
 ## 3. レイヤーの方針
 
-### App
+### Android
 
 - 端末でしかできないことを持つ: インカムのボタンからの起動、録音、位置とルートの記録、回答の再生、ナビのアプリへの復帰、地図の表示。
 - 回答の生成・文字起こし・住所の確定などのロジックは持たない。
@@ -63,7 +63,7 @@ flowchart LR
 ### CICD
 
 - Agent と Backend のデプロイを担う。デプロイの仕組み（権限・手順）は非公開のユニットに置く。
-- App の配布（知人向けのテスト配信）は App の側で自動化し、CICD はその設定手順を持つ。
+- Android の配布（知人向けのテスト配信）は Android の側で自動化し、CICD はその設定手順を持つ。
 
 ## 4. データの持ち方
 
@@ -97,7 +97,7 @@ AI モデルは新しいものが次々に出るので、管理者が手間な�
 | 対象 | 採用 | 理由 |
 |---|---|---|
 | 対象 OS | Android | インカムのボタンが出す起動の合図を受ける仕組みがある |
-| App | Kotlin・Jetpack Compose（Android ネイティブ）。リポジトリは `TouringProjectV2_Android` | インカムの経路・常駐・ナビへの復帰がネイティブの機能で、つなぎ目の無い一つの言語のほうが自動のテストで確かめやすい（[adr/0005](../adr/0005-native-android-app.md)） |
+| Android | Kotlin・Jetpack Compose（Android ネイティブ）。リポジトリは `TouringProjectV2_Android` | インカムの経路・常駐・ナビへの復帰がネイティブの機能で、つなぎ目の無い一つの言語のほうが自動のテストで確かめやすい（[adr/0005](../adr/0005-native-android-app.md)） |
 | 地図 | 国土地理院の地図タイル | 無償で使え、出典を表示すれば足りる |
 | ハンズフリー起動 | インカムのボタンが出す音声コマンドの合図を受ける | 端末の既定のアシスタントを奪わずに済む |
 | Backend | API Gateway ＋ Lambda（Python）。IaC は SAM | 門番・事実の確定・非同期の受け取りに素直 |
@@ -106,7 +106,7 @@ AI モデルは新しいものが次々に出るので、管理者が手間な�
 | AI モデル | Claude（Sonnet 系）。設定値で指定する（§5） | 回答の質。切り替えは設定で行う |
 | 文字起こし／音声合成 | Amazon Transcribe ／ Amazon Polly | Lambda から呼べる。日本語に対応する |
 | 周辺検索・住所 | Amazon Location Service | 座標から住所、周辺の施設を引ける |
-| CI/CD | AWS CodeBuild（Agent・Backend）・GitHub Actions（App の配布） | App を AWS に依存させない |
+| CI/CD | AWS CodeBuild（Agent・Backend）・GitHub Actions（Android の配布） | Android を AWS に依存させない |
 
 ## 7. リージョン
 
