@@ -16,6 +16,8 @@ PCM_BYTES_PER_SECOND = 16000 * 2  # 16 kHz, mono, 16-bit
 MIN_AUDIO_BYTES = PCM_BYTES_PER_SECOND // 4
 MAX_AUDIO_BYTES = PCM_BYTES_PER_SECOND * 60
 MAX_TEXT_CHARS = 500
+VOLUME_DB_CHOICES = (0, 3, 6, 9, 12)
+DEFAULT_VOLUME_DB = 6
 
 
 class BadRequest(ValueError):
@@ -29,6 +31,7 @@ class AskInput:
     location: Optional[dict]
     heading_sample: Optional[dict]
     conversation_id: Optional[str]
+    volume_db: int = DEFAULT_VOLUME_DB
 
 
 def _header(event: dict, name: str) -> Optional[str]:
@@ -115,4 +118,8 @@ def parse_ask(event: dict) -> AskInput:
     if conversation_id is not None and (not isinstance(conversation_id, str) or not UUID_RE.match(conversation_id)):
         raise BadRequest("conversationId must be a lowercase UUID")
 
-    return AskInput(audio, text, _point(data.get("location")), _sample(data.get("headingSample")), conversation_id)
+    volume_db = data.get("volumeDb", DEFAULT_VOLUME_DB)
+    if isinstance(volume_db, bool) or volume_db not in VOLUME_DB_CHOICES:
+        raise BadRequest("volumeDb must be one of 0, 3, 6, 9, 12")
+
+    return AskInput(audio, text, _point(data.get("location")), _sample(data.get("headingSample")), conversation_id, int(volume_db))

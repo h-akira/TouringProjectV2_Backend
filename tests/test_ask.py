@@ -63,3 +63,19 @@ def test_bad_request_leaves_nothing(aws):
 
 def test_bad_user_is_400(aws):
     assert call({"text": "Q"}, user="X")["statusCode"] == 400
+
+
+def test_volume_is_stored(aws):
+    body = json.loads(call({"text": "Q", "volumeDb": 9})["body"])
+    assert store.get_ask("rider01", body["askId"])["volumeDb"] == 9
+
+
+def test_volume_defaults_when_omitted(aws):
+    body = json.loads(call({"text": "Q"})["body"])
+    assert store.get_ask("rider01", body["askId"])["volumeDb"] == 6
+
+
+def test_bad_volume_is_rejected(aws):
+    result = call({"text": "Q", "volumeDb": 20})
+    assert result["statusCode"] == 400
+    assert aws.table.scan()["Items"] == []

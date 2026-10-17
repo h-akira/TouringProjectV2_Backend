@@ -100,3 +100,18 @@ def test_base64_encoded_body_is_decoded():
     raw = base64.b64encode(json.dumps({"text": "Q"}).encode()).decode()
     ask = parse_ask({"headers": {"x-user-name": "rider01"}, "body": raw, "isBase64Encoded": True})
     assert ask.text == "Q"
+
+
+def test_volume_defaults_to_six():
+    assert parse_ask(event({"text": "Q"})).volume_db == 6
+
+
+@pytest.mark.parametrize("volume", [0, 3, 6, 9, 12])
+def test_volume_choices(volume):
+    assert parse_ask(event({"text": "Q", "volumeDb": volume})).volume_db == volume
+
+
+@pytest.mark.parametrize("volume", [-3, 1, 15, "6", None, True, 6.5])
+def test_volume_bad(volume):
+    with pytest.raises(BadRequest):
+        parse_ask(event({"text": "Q", "volumeDb": volume}))
