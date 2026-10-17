@@ -43,7 +43,7 @@ class Recorder:
         self.calls.append(("tts", ask_id, text, volume_db))
         if self.tts_error:
             raise self.tts_error
-        return f"answers/{ask_id}.wav"
+        return f"answers/{ask_id}.mp3"
 
     def steps(self):
         return worker.Steps(self.transcribe, self.describe_location, self.invoke_agent, self.synthesize, self.now)
@@ -76,7 +76,7 @@ def test_audio_happy_path(aws):
     item = store.get_ask(USER, ASK)
     assert kinds(rec) == ["transcribe", "address", "agent", "tts"]
     assert item["status"] == "completed" and item["transcript"] == "右手の山は？" and item["answer"] == "愛鷹山です。"
-    assert item["answerAudioKey"] == f"answers/{ASK}.wav" and item["usage"] == {"inputTokens": 5} and item["modelId"] == "m"
+    assert item["answerAudioKey"] == f"answers/{ASK}.mp3" and item["usage"] == {"inputTokens": 5} and item["modelId"] == "m"
     assert item["address"] == "東京都千代田区丸の内" and round(item["headingDegrees"]) == 0
     assert set(item["timings"]) >= {"receivedAt", "transcribedAt", "factsAt", "agentDoneAt", "synthesizedAt"}
     assert not audio_exists(aws)

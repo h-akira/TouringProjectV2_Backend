@@ -96,7 +96,7 @@ def main() -> int:
     results.append(check("text question", ok, f"{elapsed:.1f}s answer={result.get('answer')} error={result.get('error')}"))
     if ok:
         with urllib.request.urlopen(result["audio"][0]["url"], timeout=30) as res:
-            audio_ok = res.status == 200 and res.headers.get("Content-Type") == "audio/wav" and len(res.read()) > 1000
+            audio_ok = res.status == 200 and res.headers.get("Content-Type") == "audio/mpeg" and len(res.read()) > 1000
         results.append(check("answer audio download", audio_ok))
     print("      timings:", json.dumps(result.get("timings"), ensure_ascii=False))
     conversation_id = accepted.get("conversationId")
