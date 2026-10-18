@@ -10,15 +10,16 @@ App から質問（PCM の音声か文字）と位置を受け付け、文字起
 |---|---|
 | `openapi.yaml` | App ↔ Backend の API 仕様（正本） |
 | `template.yaml`・`samconfig.toml` | SAM（スタック `stack-trv2-dev-backend`） |
-| `src/handlers/` | `health`・`ask`（`POST /asks`）・`result`（`GET /asks/{askId}`）・`worker`（SQS） |
-| `src/lib/` | 入力の検証・方位・プロンプト・住所・記録・会話の時間・Agent・音声合成・文字起こし |
+| `src/handlers/` | `health`・`ask`（`POST /asks`）・`result`（`GET /asks/{askId}`）・`worker`（SQS）・`rides`（`PUT /rides/{rideId}`・`PUT /rides/{rideId}/route/{seq}`） |
+| `src/lib/` | 入力の検証（質問は `request`・走行は `rides`）・方位・プロンプト・住所・記録・会話の時間・Agent・音声合成・文字起こし |
 | `scripts/smoke.py` | デプロイ後の通しの確認 |
 
 ## 流れ
 
 1. `POST /asks` が入力を検証し、録音を S3（`audio/`・1日で消える）に置き、記録を `pending` で作り、SQS に積む。会話を区切る時刻を SSM `/trv2/dev/conversation-reset-minutes`（既定15・55以下）から求めて返す。
-2. worker が受け持ちを獲得し（条件付き書き込み）、文字起こし（ストリーミング）→ 住所（Location Service）・方位・日時 → Agent（us-east-1・`runtimeSessionId` は会話の識別子）→ Polly（Kazuha・DRC と +6dB）の順に処理し、記録を `completed` か `failed` にする。
+2. worker が受け持ちを獲得し（条件付き書き込み）、文字起こし（ストリーミング）→ 住所（Location Service）・方位・日時 → Agent（us-east-1・`runtimeSessionId` はユーザー名と会話の識別子から作る SHA-256）→ Polly（Kazuha・DRC と +6dB）の順に処理し、記録を `completed` か `failed` にする。
 3. App は `GET /asks/{askId}` をポーリングし、回答の文と音声の署名付き URL（10分有効）を受け取る。
+4. 走行: App は走行のメタ情報を `PUT /rides/{rideId}` で、ルートの点を300点までのかたまりにして `PUT /rides/{rideId}/route/{seq}` で置く。メタ情報は `updatedAt` が保存済みより新しいときだけ上書きする（古ければ `applied: false` の 200）。読み出しはスライス3。
 
 ## テスト
 
