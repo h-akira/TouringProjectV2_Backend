@@ -19,7 +19,7 @@ def test_pending_is_reported_as_processing(aws):
     put(status="pending")
     body = json.loads(call()["body"])
     assert body == {"askId": ASK, "status": "processing", "transcript": None, "answer": None, "audio": [], "error": None,
-                    "timings": {"receivedAt": "2026-10-16T03:00:00.000Z"}}
+                    "timings": {"receivedAt": "2026-10-16T03:00:00.000Z"}, "askedAt": None, "address": None, "headingDegrees": None}
 
 
 def test_completed_has_presigned_audio(aws):
@@ -52,3 +52,20 @@ def test_other_user_gets_404(aws):
 def test_malformed_id_is_404_and_bad_user_is_400(aws):
     assert call(ask_id="../etc")["statusCode"] == 404
     assert call(user="X")["statusCode"] == 400
+
+
+def test_the_result_says_when_where_and_which_way(aws):
+    put(status="completed", answer="A", receivedAt="2026-10-16T03:00:00.000Z", address="静岡県御殿場市", headingDegrees=92.5)
+    body = json.loads(call()["body"])
+    assert (body["askedAt"], body["address"], body["headingDegrees"]) == ("2026-10-16T03:00:00.000Z", "静岡県御殿場市", 92.5)
+
+
+def test_a_failed_ask_without_an_address_or_heading_says_null(aws):
+    put(status="failed", error="agent_failed", receivedAt="2026-10-16T03:00:00.000Z")
+    body = json.loads(call()["body"])
+    assert body["askedAt"] == "2026-10-16T03:00:00.000Z" and body["address"] is None and body["headingDegrees"] is None
+
+
+def test_due_north_is_a_heading_not_null(aws):
+    put(status="completed", answer="A", receivedAt="2026-10-16T03:00:00.000Z", headingDegrees=0.0)
+    assert json.loads(call()["body"])["headingDegrees"] == 0

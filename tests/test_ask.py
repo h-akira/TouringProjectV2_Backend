@@ -7,6 +7,7 @@ from lib import store
 from lib.request import MIN_AUDIO_BYTES
 
 CID = "0b8e7c1e-3f1a-4f5e-9a51-2a0b2c6f7d10"
+RID = "5c9a1f0e-2b3d-4e5f-8a6b-7c8d9e0f1a2b"
 
 
 def call(body, user="rider01"):
@@ -79,3 +80,25 @@ def test_bad_volume_is_rejected(aws):
     result = call({"text": "Q", "volumeDb": 12})
     assert result["statusCode"] == 400
     assert aws.table.scan()["Items"] == []
+
+
+def test_the_ride_id_is_kept_with_the_ask(aws):
+    body = json.loads(call({"text": "Q", "rideId": RID})["body"])
+    assert store.get_ask("rider01", body["askId"])["rideId"] == RID
+
+
+def test_an_ask_outside_a_ride_has_no_ride_id(aws):
+    body = json.loads(call({"text": "Q"})["body"])
+    assert "rideId" not in store.get_ask("rider01", body["askId"])
+
+
+def test_a_malformed_ride_id_is_400(aws):
+    for bad in ("ride-1", RID.upper(), 12):
+        result = call({"text": "Q", "rideId": bad})
+        assert result["statusCode"] == 400 and "rideId" in json.loads(result["body"])["message"]
+
+
+def test_a_location_too_large_for_a_float_is_dropped_not_a_crash(aws):
+    result = call({"text": "Q", "location": {"latitude": 10 ** 400, "longitude": 139.0}})
+    assert result["statusCode"] == 202
+    assert "location" not in store.get_ask("rider01", json.loads(result["body"])["askId"])

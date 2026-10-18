@@ -1,6 +1,7 @@
 """Invoke the agent runtime (us-east-1) and read its SSE events (07 UC-8)."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
@@ -13,6 +14,13 @@ from botocore.exceptions import BotoCoreError, ClientError
 from lib import clients
 
 _RETRYABLE = "RetryableConflictException"
+
+
+def session_id(user: str, conversation_id: str) -> str:
+    """The runtime session of one user's conversation. Another user sending the same conversationId gets a session
+    of their own, so nobody reaches someone else's context by knowing the ID (Backend issue #4). 64 hex characters,
+    inside the runtime's 33-100."""
+    return hashlib.sha256(f"{user}:{conversation_id}".encode("utf-8")).hexdigest()
 
 
 class AgentError(RuntimeError):

@@ -33,6 +33,7 @@ class AskInput:
     heading_sample: Optional[dict]
     conversation_id: Optional[str]
     volume_db: int = DEFAULT_VOLUME_DB
+    ride_id: Optional[str] = None
 
 
 def _header(event: dict, name: str) -> Optional[str]:
@@ -49,17 +50,22 @@ def user_name(event: dict) -> str:
     return value
 
 
-def _number(value: Any) -> Optional[float]:
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+def finite_number(value: Any) -> Optional[float]:
+    """The value as a finite float, or None. An integer too large for a float is not a number here."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    return float(value)
+    try:
+        number = float(value)
+    except OverflowError:
+        return None
+    return number if math.isfinite(number) else None
 
 
 def _point(value: Any) -> Optional[dict]:
     """A position, or None when it is missing or broken (the question still goes ahead)."""
     if not isinstance(value, dict):
         return None
-    lat, lon = _number(value.get("latitude")), _number(value.get("longitude"))
+    lat, lon = finite_number(value.get("latitude")), finite_number(value.get("longitude"))
     if lat is None or lon is None or not -90 <= lat <= 90 or not -180 <= lon <= 180:
         return None
     return {"latitude": lat, "longitude": lon}
@@ -80,7 +86,7 @@ def _sample(value: Any) -> Optional[dict]:
     return {**point, "at": utc.strftime("%Y-%m-%dT%H:%M:%S.") + f"{utc.microsecond // 1000:03d}Z"}
 
 
-def _body(event: dict) -> dict:
+def body_json(event: dict) -> dict:
     raw = event.get("body") or ""
     try:
         if event.get("isBase64Encoded"):
@@ -94,7 +100,7 @@ def _body(event: dict) -> dict:
 
 
 def parse_ask(event: dict) -> AskInput:
-    data = _body(event)
+    data = body_json(event)
     audio_b64, text = data.get("audio"), data.get("text")
     if (audio_b64 is None) == (text is None):
         raise BadRequest("exactly one of audio and text is required")
@@ -123,4 +129,11 @@ def parse_ask(event: dict) -> AskInput:
     if isinstance(volume_db, bool) or volume_db not in VOLUME_DB_CHOICES:
         raise BadRequest("volumeDb must be one of 0, 3, 6")
 
-    return AskInput(audio, text, _point(data.get("location")), _sample(data.get("headingSample")), conversation_id, int(volume_db))
+    # Sent only while a ride is recording (slice 2 spec §4.6).
+    ride_id = data.get("rideId")
+    if ride_id is not None and (not isinstance(ride_id, str) or not UUID_RE.match(ride_id)):
+        raise BadRequest("rideId must be a lowercase UUID")
+
+    return AskInput(
+        audio, text, _point(data.get("location")), _sample(data.get("headingSample")), conversation_id, int(volume_db), ride_id
+    )

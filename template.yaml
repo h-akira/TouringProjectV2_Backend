@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: TouringProjectV2 backend (slice 1) - accept asks, process them through the agent, return answers.
+Description: TouringProjectV2 backend - accept asks, process them through the agent, return answers, and keep rides.
 
 Parameters:
   Environment:
@@ -114,6 +114,30 @@ Resources:
             RestApiId: !Ref RestApi
             Path: /asks/{askId}
             Method: get
+
+  RidesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub lambda-trv2-${Environment}-rides
+      Handler: handlers.rides.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:PutItem
+              Resource: !GetAtt RecordsTable.Arn
+      Events:
+        Ride:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /rides/{rideId}
+            Method: put
+        Route:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /rides/{rideId}/route/{seq}
+            Method: put
 
   WorkerFunction:
     Type: AWS::Serverless::Function

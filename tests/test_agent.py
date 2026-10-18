@@ -4,7 +4,7 @@ import json
 import pytest
 from botocore.exceptions import ClientError
 
-from lib.agent import AgentError, invoke, parse_events
+from lib.agent import AgentError, invoke, parse_events, session_id
 
 
 def sse(*events):
@@ -111,3 +111,15 @@ def test_agentcore_client_never_retries_on_its_own(monkeypatch):
     assert config.retries["total_max_attempts"] == 1
     assert config.read_timeout <= 90
     clients.reset()
+
+
+CONVERSATION = "0b8e7c1e-3f1a-4f5e-9a51-2a0b2c6f7d10"
+
+
+def test_the_session_belongs_to_the_user_and_the_conversation():
+    mine = session_id("rider01", CONVERSATION)
+    assert mine == session_id("rider01", CONVERSATION)
+    # Knowing someone else's conversationId does not lead into their session.
+    assert mine != session_id("rider02", CONVERSATION)
+    assert mine != CONVERSATION
+    assert 33 <= len(mine) <= 100

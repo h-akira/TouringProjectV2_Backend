@@ -37,6 +37,7 @@ def handler(event, context):
         "location": ask.location,
         "headingSample": ask.heading_sample,
         "volumeDb": ask.volume_db,
+        "rideId": ask.ride_id,
         "timings": {"receivedAt": iso(now)},
     }
     if ask.audio is not None:

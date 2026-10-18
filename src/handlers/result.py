@@ -37,4 +37,8 @@ def handler(event, context):
         "audio": audio,
         "error": item.get("error"),
         "timings": item.get("timings", {}),
+        # What the device keeps with the ask (slice 2 spec §5.2, §6.1).
+        "askedAt": item.get("receivedAt"),
+        "address": item.get("address"),
+        "headingDegrees": item.get("headingDegrees"),
     })
