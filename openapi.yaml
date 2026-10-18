@@ -84,6 +84,76 @@ paths:
                   error:
                     type: string
                     enum: [not_found]
+  /rides/{rideId}:
+    put:
+      summary: 走行のメタ情報を置く（状態・名前・区間が変わるたびに、最新の全体を送る）
+      description: >
+        updatedAt が保存済みのものより新しいときだけ上書きする。古ければ何もせず 200（applied は false）。
+        読み出しはスライス3で足す。
+      parameters:
+        - $ref: "#/components/parameters/UserName"
+        - $ref: "#/components/parameters/RideId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RideRequest"
+      responses:
+        "200":
+          description: 受け取った（保存したか、古いので何もしなかったか）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rideId, applied]
+                properties:
+                  rideId:
+                    type: string
+                    format: uuid
+                  applied:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: 接続キーが無効
+  /rides/{rideId}/route/{seq}:
+    put:
+      summary: ルートの点のかたまりを置く（同じ seq は丸ごと上書き）
+      parameters:
+        - $ref: "#/components/parameters/UserName"
+        - $ref: "#/components/parameters/RideId"
+        - name: seq
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 99999
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RouteChunk"
+      responses:
+        "200":
+          description: 保存した
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rideId, seq]
+                properties:
+                  rideId:
+                    type: string
+                    format: uuid
+                  seq:
+                    type: integer
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: 接続キーが無効
 components:
   securitySchemes:
     ApiKey:
@@ -98,6 +168,14 @@ components:
       schema:
         type: string
         pattern: "^[a-z0-9]{3,20}$"
+    RideId:
+      name: rideId
+      in: path
+      required: true
+      description: Android が作る UUID（小文字）
+      schema:
+        type: string
+        format: uuid
   responses:
     BadRequest:
       description: 入力が不正
@@ -162,6 +240,11 @@ components:
           enum: [0, 3, 6]
           default: 6
           description: 回答の音声を上げる量（dB）。利用者が設定で選ぶ。Polly は +6dB で頭打ちになるので、6 が最大。
+        rideId:
+          type: string
+          format: uuid
+          nullable: true
+          description: 走行の記録中に始めた質問だけに付ける（小文字）。一時停止中・記録していないときは付けない。
     AskAccepted:
       type: object
       required: [askId, conversationId, conversationExpiresAt]
@@ -214,3 +297,81 @@ components:
           additionalProperties:
             type: string
             format: date-time
+        askedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 受け付けた日時（UTC）
+        address:
+          type: string
+          nullable: true
+          description: 質問した地点の住所。確定できなかったら null
+        headingDegrees:
+          type: number
+          nullable: true
+          description: 進行方位（北を0とする度）。方位なしなら null
+    RideRequest:
+      type: object
+      required: [name, status, segments, autoEnded, updatedAt]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        status:
+          type: string
+          enum: [recording, paused, ended]
+        segments:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          description: 記録した区間の並び。記録中の走行だけ、最後の区間の endedAt が null。重なってはいけない。
+          items:
+            type: object
+            required: [startedAt, endedAt]
+            properties:
+              startedAt:
+                type: string
+                format: date-time
+              endedAt:
+                type: string
+                format: date-time
+                nullable: true
+        autoEnded:
+          type: boolean
+          description: 最長時間で自動で終了したか（終了した走行だけ true にできる）
+        updatedAt:
+          type: string
+          format: date-time
+          description: Android が変更した時刻（タイムゾーン付き）
+    RouteChunk:
+      type: object
+      required: [points]
+      properties:
+        points:
+          type: array
+          minItems: 1
+          maxItems: 300
+          items:
+            type: object
+            required: [t, lat, lon, accuracy, segment]
+            properties:
+              t:
+                type: string
+                format: date-time
+              lat:
+                type: number
+                minimum: -90
+                maximum: 90
+              lon:
+                type: number
+                minimum: -180
+                maximum: 180
+              accuracy:
+                type: number
+                minimum: 0
+                nullable: true
+              segment:
+                type: integer
+                minimum: 0
+                description: 点を記録した区間の番号（segments の何番目か。0から）
