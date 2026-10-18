@@ -343,7 +343,9 @@ components:
         updatedAt:
           type: string
           format: date-time
-          description: Android が変更した時刻（タイムゾーン付き）
+          description: >
+            Android が変更した時刻（タイムゾーン付き）。ミリ秒まで比べ、それより細かい部分は切り捨てる。
+            保存済みと同じミリ秒の版は新しいとみなさない（Android は端末のミリ秒の時刻を送るので、それより細かい差は来ない）。
     RouteChunk:
       type: object
       required: [points]
