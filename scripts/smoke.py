@@ -70,6 +70,29 @@ def sample(seconds_ago: int) -> dict:
     return {**SOUTH_60M, "at": at.strftime("%Y-%m-%dT%H:%M:%SZ")}
 
 
+def minutes_ago(minutes: int) -> str:
+    return (datetime.now(timezone.utc) - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def ride_checks(api: str, key: str, ride_id: str) -> list[bool]:
+    results = []
+    ride = {"name": "smoke", "status": "paused", "segments": [{"startedAt": minutes_ago(30), "endedAt": minutes_ago(10)}],
+            "autoEnded": False, "updatedAt": minutes_ago(10)}
+    status, body = request("PUT", f"{api}/rides/{ride_id}", key, USER, ride)
+    results.append(check("ride saved", status == 200 and body == {"rideId": ride_id, "applied": True}, str(status)))
+    status, body = request("PUT", f"{api}/rides/{ride_id}", key, USER, {**ride, "name": "older", "updatedAt": minutes_ago(20)})
+    results.append(check("older ride ignored", status == 200 and body.get("applied") is False, str(status)))
+    status, body = request("PUT", f"{api}/rides/{ride_id}", key, USER, {**ride, "name": " "})
+    results.append(check("bad ride is 400", status == 400 and body.get("error") == "bad_request", str(status)))
+    points = [{"t": minutes_ago(30 - i), "lat": TOKYO_STATION["latitude"] + i * 0.0005, "lon": TOKYO_STATION["longitude"],
+               "accuracy": 5.0, "segment": 0} for i in range(5)]
+    status, body = request("PUT", f"{api}/rides/{ride_id}/route/0", key, USER, {"points": points})
+    results.append(check("route chunk saved", status == 200 and body == {"rideId": ride_id, "seq": 0}, str(status)))
+    status, _ = request("PUT", f"{api}/rides/{ride_id}/route/0", None, USER, {"points": points})
+    results.append(check("ride without key is 403", status == 403, str(status)))
+    return results
+
+
 def ask_and_wait(api: str, key: str, body: dict) -> tuple[dict, dict, float]:
     status, accepted = request("POST", f"{api}/asks", key, USER, body)
     if status != 202:
@@ -91,7 +114,12 @@ def main() -> int:
     status, body = request("POST", f"{api}/asks", key, "BAD", {"text": "Q"})
     results.append(check("bad user is 400", status == 400 and body.get("error") == "bad_request", str(status)))
 
-    accepted, result, elapsed = ask_and_wait(api, key, {"text": "富士山の高さは？", "location": TOKYO_STATION, "headingSample": sample(10)})
+    ride_id = str(uuid.uuid4())
+    results.extend(ride_checks(api, key, ride_id))
+
+    accepted, result, elapsed = ask_and_wait(
+        api, key, {"text": "富士山の高さは？", "location": TOKYO_STATION, "headingSample": sample(10), "rideId": ride_id}
+    )
     ok = result.get("status") == "completed" and bool(result.get("answer")) and len(result.get("audio", [])) == 1
     results.append(check("text question", ok, f"{elapsed:.1f}s answer={result.get('answer')} error={result.get('error')}"))
     if ok:
@@ -99,6 +127,9 @@ def main() -> int:
             audio_ok = res.status == 200 and res.headers.get("Content-Type") == "audio/mpeg" and len(res.read()) > 1000
         results.append(check("answer audio download", audio_ok))
     print("      timings:", json.dumps(result.get("timings"), ensure_ascii=False))
+    ok = bool(result.get("askedAt")) and bool(result.get("address")) and result.get("headingDegrees") is not None
+    results.append(check("ask has when, where and heading", ok,
+                         f"askedAt={result.get('askedAt')} address={result.get('address')} heading={result.get('headingDegrees')}"))
     conversation_id = accepted.get("conversationId")
     expires = accepted.get("conversationExpiresAt")
     results.append(check("conversation expiry returned", bool(expires), str(expires)))
