@@ -10,7 +10,7 @@ from typing import Optional
 
 from handlers.common import iso, log, parse_iso, utc_now
 from lib import address, agent, clients, speech, store, transcribe
-from lib.agent import AgentError, AgentReply
+from lib.agent import AgentError, AgentReply, session_id
 from lib.geo import heading_degrees
 from lib.prompt import agent_location, build_prompt
 from lib.request import DEFAULT_VOLUME_DB
@@ -101,7 +101,7 @@ def _run(user: str, ask_id: str, item: dict, steps: Steps) -> None:
     facts = {"transcript": transcript, "address": place, "headingDegrees": round(heading, 1) if heading is not None else None}
 
     try:
-        reply = steps.invoke_agent(prompt, agent_location(location, heading), item["conversationId"])
+        reply = steps.invoke_agent(prompt, agent_location(location, heading), session_id(user, item["conversationId"]))
     except Exception as error:  # noqa: BLE001 - AgentError or anything unexpected from the call
         mark("agentDoneAt")
         reason = str(error) if isinstance(error, AgentError) else type(error).__name__

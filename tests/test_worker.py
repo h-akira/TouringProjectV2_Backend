@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from handlers import worker
 from handlers.common import iso
 from lib import store
-from lib.agent import AgentError, AgentReply
+from lib.agent import AgentError, AgentReply, session_id
 
 USER, ASK, CID = "rider01", "11111111-1111-4111-8111-111111111111", "33333333-3333-4333-8333-333333333333"
 T0 = datetime(2026, 10, 16, 3, 0, tzinfo=timezone.utc)
@@ -90,7 +90,7 @@ def test_agent_gets_facts_location_and_session(aws):
     assert "現在地の住所: 東京都千代田区丸の内" in prompt
     assert "会話の最初の質問から約10分後" in prompt
     assert prompt.endswith("質問: 右手の山は？")
-    assert location["headingDegrees"] == 0.0 and session == CID
+    assert location["headingDegrees"] == 0.0 and session == session_id(USER, CID)
 
 
 def test_text_question_skips_transcription(aws):
