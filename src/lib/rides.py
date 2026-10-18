@@ -1,13 +1,12 @@
 """Validation of a ride and its route chunks sent by the Android app (slice 2 spec §6.2)."""
 from __future__ import annotations
 
-import math
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
-from lib.request import BadRequest, UUID_RE, body_json
+from lib.request import BadRequest, UUID_RE, body_json, finite_number
 
 RIDE_NAME_MAX = 40
 STATUSES = ("recording", "paused", "ended")
@@ -38,12 +37,6 @@ def _iso(value: Any, field: str) -> str:
         raise BadRequest(f"{field} must be a date-time with a time zone")
     utc = parsed.astimezone(timezone.utc)
     return utc.strftime("%Y-%m-%dT%H:%M:%S.") + f"{utc.microsecond // 1000:03d}Z"
-
-
-def _number(value: Any) -> Optional[float]:
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
-        return None
-    return float(value)
 
 
 def ride_id(event: dict) -> str:
@@ -102,16 +95,16 @@ def parse_ride(event: dict) -> RideInput:
 def _point(raw: Any) -> dict:
     if not isinstance(raw, dict):
         raise BadRequest("each point must be an object")
-    lat, lon = _number(raw.get("lat")), _number(raw.get("lon"))
+    lat, lon = finite_number(raw.get("lat")), finite_number(raw.get("lon"))
     if lat is None or lon is None or not -90 <= lat <= 90 or not -180 <= lon <= 180:
         raise BadRequest("lat and lon must be a position")
     accuracy = raw.get("accuracy")
-    if accuracy is not None and (_number(accuracy) is None or accuracy < 0):
+    if accuracy is not None and (finite_number(accuracy) is None or accuracy < 0):
         raise BadRequest("accuracy must be a non-negative number or null")
     segment = raw.get("segment")
     if isinstance(segment, bool) or not isinstance(segment, int) or not 0 <= segment < MAX_SEGMENTS:
         raise BadRequest(f"segment must be 0-{MAX_SEGMENTS - 1}")
-    return {"t": _iso(raw.get("t"), "t"), "lat": lat, "lon": lon, "accuracy": _number(accuracy), "segment": segment}
+    return {"t": _iso(raw.get("t"), "t"), "lat": lat, "lon": lon, "accuracy": finite_number(accuracy), "segment": segment}
 
 
 def parse_route(event: dict) -> list:

@@ -180,3 +180,8 @@ def test_a_bad_chunk_is_400(aws):
     for seq in ("-1", "abc", "100000"):
         assert put_route([point(0)], seq=seq)["statusCode"] == 400
     assert aws.table.scan()["Items"] == []
+
+
+def test_a_number_too_large_for_a_float_is_400_not_a_crash(aws):
+    result = put_route([{**point(0), "lat": 10 ** 400}])
+    assert result["statusCode"] == 400 and "lat and lon" in message(result)

@@ -50,17 +50,22 @@ def user_name(event: dict) -> str:
     return value
 
 
-def _number(value: Any) -> Optional[float]:
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+def finite_number(value: Any) -> Optional[float]:
+    """The value as a finite float, or None. An integer too large for a float is not a number here."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    return float(value)
+    try:
+        number = float(value)
+    except OverflowError:
+        return None
+    return number if math.isfinite(number) else None
 
 
 def _point(value: Any) -> Optional[dict]:
     """A position, or None when it is missing or broken (the question still goes ahead)."""
     if not isinstance(value, dict):
         return None
-    lat, lon = _number(value.get("latitude")), _number(value.get("longitude"))
+    lat, lon = finite_number(value.get("latitude")), finite_number(value.get("longitude"))
     if lat is None or lon is None or not -90 <= lat <= 90 or not -180 <= lon <= 180:
         return None
     return {"latitude": lat, "longitude": lon}

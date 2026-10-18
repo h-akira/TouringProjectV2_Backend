@@ -96,3 +96,9 @@ def test_a_malformed_ride_id_is_400(aws):
     for bad in ("ride-1", RID.upper(), 12):
         result = call({"text": "Q", "rideId": bad})
         assert result["statusCode"] == 400 and "rideId" in json.loads(result["body"])["message"]
+
+
+def test_a_location_too_large_for_a_float_is_dropped_not_a_crash(aws):
+    result = call({"text": "Q", "location": {"latitude": 10 ** 400, "longitude": 139.0}})
+    assert result["statusCode"] == 202
+    assert "location" not in store.get_ask("rider01", json.loads(result["body"])["askId"])
