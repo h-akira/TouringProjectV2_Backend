@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: TouringProjectV2 backend - accept asks, process them through the agent, return answers, and keep rides.
+Description: TouringProjectV2 backend - accept asks, process them through the agent, return answers, and keep rides, memos and point memos.
 
 Parameters:
   Environment:
@@ -120,11 +120,17 @@ Resources:
     Properties:
       FunctionName: !Sub lambda-trv2-${Environment}-rides
       Handler: handlers.rides.handler
+      Environment:
+        Variables:
+          GEO_REGION: !Ref AWS::Region
       Policies:
+        # Writes check deletion marks in a transaction; deleting a ride reads and removes its records (slice 3 spec §6).
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RecordsTable
         - Statement:
             - Effect: Allow
-              Action: dynamodb:PutItem
-              Resource: !GetAtt RecordsTable.Arn
+              Action: geo-places:ReverseGeocode
+              Resource: "*"
       Events:
         Ride:
           Type: Api
@@ -138,6 +144,79 @@ Resources:
             RestApiId: !Ref RestApi
             Path: /rides/{rideId}/route/{seq}
             Method: put
+        RideDelete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /rides/{rideId}
+            Method: delete
+        Note:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /rides/{rideId}/notes/{noteId}
+            Method: put
+        NoteDelete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /rides/{rideId}/notes/{noteId}
+            Method: delete
+
+  AskEditFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub lambda-trv2-${Environment}-ask-edit
+      Handler: handlers.ask_edit.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RecordsTable
+      Events:
+        Memo:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /asks/{askId}/memo
+            Method: put
+        AskDelete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /asks/{askId}
+            Method: delete
+
+  TranscriptionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub lambda-trv2-${Environment}-transcriptions
+      Handler: handlers.transcriptions.handler
+      MemorySize: 512
+      Timeout: 15
+      Environment:
+        Variables:
+          QUEUE_URL: !Ref AskQueue
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RecordsTable
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt AskQueue.QueueName
+        - Statement:
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub ${AudioBucket.Arn}/audio/*
+      Events:
+        Accept:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /transcriptions
+            Method: post
+        Result:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /transcriptions/{transcriptionId}
+            Method: get
 
   WorkerFunction:
     Type: AWS::Serverless::Function
@@ -216,6 +295,10 @@ Resources:
           KeyType: RANGE
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
+      # Only transcriptions carry expiresAt; they are needed while the app polls (slice 3 spec §6.1).
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
 
   AudioBucket:
     Type: AWS::S3::Bucket
