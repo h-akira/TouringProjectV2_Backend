@@ -1,4 +1,4 @@
-"""Validation of the App's requests (07 UC-4, UC-5)."""
+"""Validation of the App's requests (07 UC-4, UC-5, UC-6)."""
 from __future__ import annotations
 
 import base64
@@ -100,22 +100,34 @@ def body_json(event: dict) -> dict:
     return data
 
 
+def pcm_audio(audio_b64: Any) -> bytes:
+    """0.25-60 seconds of 16 kHz mono 16-bit PCM, sent as base64 (adr/0002)."""
+    if not isinstance(audio_b64, str):
+        raise BadRequest("audio must be base64")
+    try:
+        audio = base64.b64decode(audio_b64, validate=True)
+    except (binascii.Error, ValueError):
+        raise BadRequest("audio must be base64") from None
+    if not MIN_AUDIO_BYTES <= len(audio) <= MAX_AUDIO_BYTES or len(audio) % 2:
+        raise BadRequest("audio must be 0.25-60 seconds of 16 kHz mono 16-bit PCM")
+    return audio
+
+
+def parse_transcription(event: dict) -> bytes:
+    """POST /transcriptions: the recording of a point memo, to be turned into text only (07 UC-6)."""
+    audio_b64 = body_json(event).get("audio")
+    if audio_b64 is None:
+        raise BadRequest("audio is required")
+    return pcm_audio(audio_b64)
+
+
 def parse_ask(event: dict) -> AskInput:
     data = body_json(event)
     audio_b64, text = data.get("audio"), data.get("text")
     if (audio_b64 is None) == (text is None):
         raise BadRequest("exactly one of audio and text is required")
 
-    audio = None
-    if audio_b64 is not None:
-        if not isinstance(audio_b64, str):
-            raise BadRequest("audio must be base64")
-        try:
-            audio = base64.b64decode(audio_b64, validate=True)
-        except (binascii.Error, ValueError):
-            raise BadRequest("audio must be base64") from None
-        if not MIN_AUDIO_BYTES <= len(audio) <= MAX_AUDIO_BYTES or len(audio) % 2:
-            raise BadRequest("audio must be 0.25-60 seconds of 16 kHz mono 16-bit PCM")
+    audio = pcm_audio(audio_b64) if audio_b64 is not None else None
 
     if text is not None:
         if not isinstance(text, str) or not text.strip() or len(text) > MAX_TEXT_CHARS:

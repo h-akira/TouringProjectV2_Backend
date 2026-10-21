@@ -99,9 +99,13 @@ def create_ask(item: dict) -> None:
 
 def claim_ask(user: str, ask_id: str) -> Optional[dict]:
     """pending -> processing, once. None if already claimed or missing."""
+    return _claim(ask_key(user, ask_id))
+
+
+def _claim(key: dict) -> Optional[dict]:
     try:
         result = clients.table().update_item(
-            Key=ask_key(user, ask_id),
+            Key=key,
             UpdateExpression="SET #s = :processing",
             ConditionExpression="#s = :pending",
             ExpressionAttributeNames={"#s": "status"},
@@ -245,3 +249,32 @@ def delete_ride(user: str, ride_id: str, deleted_at: str) -> dict:
         mark_deleted(user, "ask", key["sk"].split("#", 1)[1], deleted_at, ride_id=ride_id)
     _delete_all(under + asks)
     return {"notes": len(notes), "asks": len(asks), "chunks": sum("#ROUTE#" in k["sk"] for k in under)}
+
+
+def transcription_key(user: str, transcription_id: str) -> dict:
+    return {"pk": f"USER#{user}", "sk": f"TRANSCRIPTION#{transcription_id}"}
+
+
+def create_transcription(item: dict) -> None:
+    clients.table().put_item(Item=_to_item(item))
+
+
+def claim_transcription(user: str, transcription_id: str) -> Optional[dict]:
+    """pending -> processing, once. None if already claimed or missing."""
+    return _claim(transcription_key(user, transcription_id))
+
+
+def finish_transcription(user: str, transcription_id: str, fields: dict) -> None:
+    values = _to_item(fields)
+    names = {f"#k{i}": key for i, key in enumerate(values)}
+    clients.table().update_item(
+        Key=transcription_key(user, transcription_id),
+        UpdateExpression="SET " + ", ".join(f"#k{i} = :v{i}" for i in range(len(values))),
+        ExpressionAttributeNames=names,
+        ExpressionAttributeValues={f":v{i}": value for i, value in enumerate(values.values())},
+    )
+
+
+def get_transcription(user: str, transcription_id: str) -> Optional[dict]:
+    item = clients.table().get_item(Key=transcription_key(user, transcription_id)).get("Item")
+    return _from_item(item) if item else None
