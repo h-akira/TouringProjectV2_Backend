@@ -1,4 +1,5 @@
-"""Records in one DynamoDB table: pk USER#<name>, sk ASK#<id>, CONV#<id>, RIDE#<id> or RIDE#<id>#ROUTE#<seq>."""
+"""Records in one DynamoDB table: pk USER#<name>, sk ASK#<id>, CONV#<id>, RIDE#<id>, RIDE#<id>#ROUTE#<seq>,
+RIDE#<id>#NOTE#<id>, DELETED#<KIND>#<id> or TRANSCRIPTION#<id>."""
 from __future__ import annotations
 
 import json
@@ -10,6 +11,11 @@ from botocore.exceptions import ClientError
 from lib import clients
 
 _CONDITION_FAILED = "ConditionalCheckFailedException"
+_CANCELLED = "TransactionCanceledException"
+
+
+class Deleted(Exception):
+    """The record, or the ride it belongs to, has a deletion mark (slice 3 spec §5.4, adr/0009)."""
 
 
 def _to_item(value: Any) -> Any:
@@ -33,6 +39,38 @@ def _from_item(value: Any) -> Any:
     if isinstance(value, list):
         return [_from_item(v) for v in value]
     return value
+
+
+def deleted_key(user: str, kind: str, record_id: str) -> dict:
+    """kind is ask, ride or note."""
+    return {"pk": f"USER#{user}", "sk": f"DELETED#{kind.upper()}#{record_id}"}
+
+
+def mark_deleted(user: str, kind: str, record_id: str, deleted_at: str, ride_id: Optional[str] = None) -> None:
+    """Writes the deletion mark; marking again keeps one. Marks never expire (adr/0009)."""
+    clients.table().put_item(Item=_to_item({**deleted_key(user, kind, record_id), "kind": kind, "id": record_id,
+                                            "rideId": ride_id, "deletedAt": deleted_at}))
+
+
+def _write_unless_deleted(write: dict, marks: list) -> bool:
+    """Runs one transaction write (a Put or an Update) unless one of the deletion marks exists, atomically, so that a
+    deletion that lands at the same time cannot be undone. True when written; False when the write's own condition
+    failed. Raises Deleted when a mark exists. The table's client takes plain values, as the table does."""
+    table = clients.table()
+    checks = [{"ConditionCheck": {"TableName": table.name, "Key": mark, "ConditionExpression": "attribute_not_exists(pk)"}}
+              for mark in marks]
+    try:
+        table.meta.client.transact_write_items(TransactItems=[write, *checks])
+    except ClientError as error:
+        if error.response["Error"]["Code"] != _CANCELLED:
+            raise
+        codes = [reason.get("Code") for reason in error.response.get("CancellationReasons") or []]
+        if "ConditionalCheckFailed" in codes[1:]:
+            raise Deleted() from None
+        if codes[:1] == ["ConditionalCheckFailed"]:
+            return False
+        raise
+    return True
 
 
 def ask_key(user: str, ask_id: str) -> dict:
@@ -77,18 +115,26 @@ def claim_ask(user: str, ask_id: str) -> Optional[dict]:
     return _from_item(result["Attributes"])
 
 
-def update_ask(user: str, ask_id: str, fields: dict) -> None:
+def update_ask(user: str, ask_id: str, fields: dict) -> bool:
+    """Sets the fields on a stored ask. False when the ask is gone (deleted meanwhile): it is not written back."""
     values = _to_item(fields)
     if not values:
-        return
+        return True
     names = {f"#k{i}": key for i, key in enumerate(values)}
     expression = "SET " + ", ".join(f"#k{i} = :v{i}" for i in range(len(values)))
-    clients.table().update_item(
-        Key=ask_key(user, ask_id),
-        UpdateExpression=expression,
-        ExpressionAttributeNames=names,
-        ExpressionAttributeValues={f":v{i}": value for i, value in enumerate(values.values())},
-    )
+    try:
+        clients.table().update_item(
+            Key=ask_key(user, ask_id),
+            UpdateExpression=expression,
+            ConditionExpression="attribute_exists(pk)",
+            ExpressionAttributeNames=names,
+            ExpressionAttributeValues={f":v{i}": value for i, value in enumerate(values.values())},
+        )
+    except ClientError as error:
+        if error.response["Error"]["Code"] == _CONDITION_FAILED:
+            return False
+        raise
+    return True
 
 
 def get_ask(user: str, ask_id: str) -> Optional[dict]:
@@ -106,21 +152,16 @@ def route_key(user: str, ride_id: str, seq: int) -> dict:
 
 
 def put_ride(user: str, ride_id: str, fields: dict) -> bool:
-    """Writes the ride unless a newer one is stored (updatedAt, normalised UTC text). False when it was older."""
+    """Writes the ride unless a newer one is stored (updatedAt, normalised UTC text). False when it was older.
+    Raises Deleted when the ride has been deleted."""
     item = {**ride_key(user, ride_id), "rideId": ride_id, **fields}
-    try:
-        clients.table().put_item(
-            Item=_to_item(item),
-            ConditionExpression="attribute_not_exists(pk) OR updatedAt < :u",
-            ExpressionAttributeValues={":u": fields["updatedAt"]},
-        )
-    except ClientError as error:
-        if error.response["Error"]["Code"] == _CONDITION_FAILED:
-            return False
-        raise
-    return True
+    put = {"Put": {"TableName": clients.table().name, "Item": _to_item(item),
+                   "ConditionExpression": "attribute_not_exists(pk) OR updatedAt < :u",
+                   "ExpressionAttributeValues": {":u": fields["updatedAt"]}}}
+    return _write_unless_deleted(put, [deleted_key(user, "ride", ride_id)])
 
 
 def put_route_chunk(user: str, ride_id: str, seq: int, points: list, saved_at: str) -> None:
-    """A chunk is replaced whole: sending it again leaves one copy."""
-    clients.table().put_item(Item=_to_item({**route_key(user, ride_id, seq), "rideId": ride_id, "seq": seq, "points": points, "savedAt": saved_at}))
+    """A chunk is replaced whole: sending it again leaves one copy. Raises Deleted when the ride has been deleted."""
+    item = {**route_key(user, ride_id, seq), "rideId": ride_id, "seq": seq, "points": points, "savedAt": saved_at}
+    _write_unless_deleted({"Put": {"TableName": clients.table().name, "Item": _to_item(item)}}, [deleted_key(user, "ride", ride_id)])

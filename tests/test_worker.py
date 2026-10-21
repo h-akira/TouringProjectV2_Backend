@@ -183,3 +183,18 @@ def test_asks_without_volume_use_the_default(aws):
     rec = Recorder()
     worker.process(USER, ASK, rec.steps())
     assert next(c for c in rec.calls if c[0] == "tts")[3] == 6
+
+
+def test_an_ask_deleted_while_it_is_answered_is_not_written_back(aws):
+    put(aws, audio=False)
+    rec = Recorder()
+    agent = rec.invoke_agent
+
+    def delete_then_answer(prompt, location, session):
+        # The rider deletes the ask while the agent is answering (slice 3 spec §6.3).
+        aws.table.delete_item(Key=store.ask_key(USER, ASK))
+        return agent(prompt, location, session)
+
+    rec.invoke_agent = delete_then_answer
+    worker.process(USER, ASK, rec.steps())
+    assert store.get_ask(USER, ASK) is None

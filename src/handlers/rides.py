@@ -2,7 +2,7 @@
 Reading them back comes with slice 3."""
 from __future__ import annotations
 
-from handlers.common import iso, log, response, utc_now
+from handlers.common import deleted, iso, log, response, utc_now
 from lib import rides, store
 from lib.request import BadRequest, user_name
 
@@ -16,6 +16,8 @@ def handler(event, context):
         return _ride(event, user, ride_id)
     except BadRequest as error:
         return response(400, {"error": "bad_request", "message": str(error)})
+    except store.Deleted:
+        return deleted()
 
 
 def _ride(event: dict, user: str, ride_id: str) -> dict:

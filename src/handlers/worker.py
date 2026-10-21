@@ -70,7 +70,9 @@ def _run(user: str, ask_id: str, item: dict, steps: Steps) -> None:
 
     def finish(status: str, error: Optional[str] = None, **fields) -> None:
         outcome.update(fields)
-        store.update_ask(user, ask_id, {"status": status, "error": error, "timings": timings, **fields})
+        if not store.update_ask(user, ask_id, {"status": status, "error": error, "timings": timings, **fields}):
+            log({"event": "ask_gone", "askId": ask_id})
+            return
         log({"event": "ask_done", "askId": ask_id, "status": status, "error": error, "inputType": item.get("inputType"),
              "durationsMs": _durations(timings), "usage": fields.get("usage"), "modelId": fields.get("modelId"),
              "tools": fields.get("tools")})
