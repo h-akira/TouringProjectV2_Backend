@@ -3,7 +3,7 @@ info:
   title: TouringProjectV2 Backend API
   version: 1.0.0
   description: >
-    App ↔ Backend の約束の正本（親リポジトリ docs/07_units_contracts.md UC-4・UC-5）。
+    App ↔ Backend の約束の正本（親リポジトリ docs/07_units_contracts.md UC-4〜UC-7）。
     /health 以外は x-api-key（接続キー）と x-user-name（英小文字と数字の3〜20文字）が要る。
 servers:
   - url: https://{apiId}.execute-api.ap-northeast-1.amazonaws.com/Prod
@@ -84,12 +84,67 @@ paths:
                   error:
                     type: string
                     enum: [not_found]
+    delete:
+      summary: 質問を消し、削除の跡を残す（何度呼んでも、無い質問でも 204）
+      parameters:
+        - $ref: "#/components/parameters/UserName"
+        - $ref: "#/components/parameters/AskId"
+      responses:
+        "204":
+          description: 消した
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: 接続キーが無効
+  /asks/{askId}/memo:
+    put:
+      summary: 会話のメモを置く（memo が null なら消す）
+      description: updatedAt が保存済みの memoUpdatedAt より新しいときだけ書く。古ければ何もせず 200（applied は false）。
+      parameters:
+        - $ref: "#/components/parameters/UserName"
+        - $ref: "#/components/parameters/AskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AskMemoRequest"
+      responses:
+        "200":
+          description: 受け取った（書いたか、古いので何もしなかったか）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [askId, applied]
+                properties:
+                  askId:
+                    type: string
+                    format: uuid
+                  applied:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: 接続キーが無効
+        "404":
+          description: 質問が無い（他のユーザーの質問も無いものとして扱う）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    enum: [not_found]
+        "410":
+          $ref: "#/components/responses/Deleted"
   /rides/{rideId}:
     put:
-      summary: 走行のメタ情報を置く（状態・名前・区間が変わるたびに、最新の全体を送る）
+      summary: 走行のメタ情報を置く（状態・名前・区間・メモが変わるたびに、最新の全体を送る）
       description: >
         updatedAt が保存済みのものより新しいときだけ上書きする。古ければ何もせず 200（applied は false）。
-        読み出しはスライス3で足す。
+        削除の跡がある走行は書かずに 410。読み出しは後のスライスで足す。
       parameters:
         - $ref: "#/components/parameters/UserName"
         - $ref: "#/components/parameters/RideId"
@@ -117,9 +172,24 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "403":
           description: 接続キーが無効
+        "410":
+          $ref: "#/components/responses/Deleted"
+    delete:
+      summary: 走行を消し、削除の跡を残す（ルート・地点メモ・その走行の質問も消し、地点メモと質問にも跡を残す）
+      description: 何度呼んでも、無い走行でも 204。
+      parameters:
+        - $ref: "#/components/parameters/UserName"
+        - $ref: "#/components/parameters/RideId"
+      responses:
+        "204":
+          description: 消した
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: 接続キーが無効
   /rides/{rideId}/route/{seq}:
     put:
-      summary: ルートの点のかたまりを置く（同じ seq は丸ごと上書き）
+      summary: ルートの点のかたまりを置く（同じ seq は丸ごと上書き。削除の跡がある走行は 410）
       parameters:
         - $ref: "#/components/parameters/UserName"
         - $ref: "#/components/parameters/RideId"
@@ -154,6 +224,112 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "403":
           description: 接続キーが無効
+        "410":
+          $ref: "#/components/responses/Deleted"
+  /rides/{rideId}/notes/{noteId}:
+    put:
+      summary: 地点メモを置く（最新の全体を送る）
+      description: >
+        updatedAt が保存済みのものより新しいときだけ書く。古ければ何もせず 200（applied は false）で、保存済みの住所と方位を返す。
+        住所（町名まで）と方位は最初に受けたときに Backend が決め、あとの PUT では変えない（住所を確定できなかったときは次の PUT で求め直す）。
+        地点メモか走行に削除の跡があれば、書かずに 410。走行のメタ情報より先に届いてもよい。
+      parameters:
+        - $ref: "#/components/parameters/UserName"
+        - $ref: "#/components/parameters/RideId"
+        - $ref: "#/components/parameters/NoteId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteRequest"
+      responses:
+        "200":
+          description: 受け取った（書いたか、古いので何もしなかったか）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteSaved"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: 接続キーが無効
+        "410":
+          $ref: "#/components/responses/Deleted"
+    delete:
+      summary: 地点メモを消し、削除の跡を残す（何度呼んでも、無い地点メモでも 204）
+      parameters:
+        - $ref: "#/components/parameters/UserName"
+        - $ref: "#/components/parameters/RideId"
+        - $ref: "#/components/parameters/NoteId"
+      responses:
+        "204":
+          description: 消した
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: 接続キーが無効
+  /transcriptions:
+    post:
+      summary: 地点メモの声を文字にするだけの依頼を受け付ける（AI は呼ばない。結果は GET /transcriptions/{transcriptionId}）
+      parameters:
+        - $ref: "#/components/parameters/UserName"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TranscriptionRequest"
+      responses:
+        "202":
+          description: 受け付けた
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [transcriptionId]
+                properties:
+                  transcriptionId:
+                    type: string
+                    format: uuid
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: 接続キーが無効
+        "429":
+          description: 流量の制限
+  /transcriptions/{transcriptionId}:
+    get:
+      summary: 文字起こしの状態と結果（受け付けてから1日で消える）
+      parameters:
+        - $ref: "#/components/parameters/UserName"
+        - name: transcriptionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: 状態
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TranscriptionResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: 接続キーが無効
+        "404":
+          description: 無い（他のユーザーのもの・1日を過ぎたものも無いものとして扱う）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    enum: [not_found]
 components:
   securitySchemes:
     ApiKey:
@@ -176,7 +352,34 @@ components:
       schema:
         type: string
         format: uuid
+    NoteId:
+      name: noteId
+      in: path
+      required: true
+      description: Android が作る UUID（小文字）
+      schema:
+        type: string
+        format: uuid
+    AskId:
+      name: askId
+      in: path
+      required: true
+      description: Backend が質問を受け付けたときに返した UUID（小文字）
+      schema:
+        type: string
+        format: uuid
   responses:
+    Deleted:
+      description: 削除の跡がある（記録か、その走行が消されている）。書かなかった。App は送れたものとして扱い、送り直さない
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error:
+                type: string
+                enum: [deleted]
     BadRequest:
       description: 入力が不正
       content:
@@ -346,6 +549,100 @@ components:
           description: >
             Android が変更した時刻（タイムゾーン付き）。ミリ秒まで比べ、それより細かい部分は切り捨てる。
             保存済みと同じミリ秒の版は新しいとみなさない（Android は端末のミリ秒の時刻を送るので、それより細かい差は来ない）。
+        memo:
+          type: string
+          maxLength: 2000
+          nullable: true
+          description: 走行のメモ。null・省略・空白だけは「メモ無し」（保存済みのメモも消える）。前後の空白は落とす
+    AskMemoRequest:
+      type: object
+      required: [memo, updatedAt]
+      properties:
+        memo:
+          type: string
+          maxLength: 2000
+          nullable: true
+          description: 会話のメモ。null・空白だけなら消す。前後の空白は落とす
+        updatedAt:
+          type: string
+          format: date-time
+          description: Android がメモを変えた時刻（タイムゾーン付き。ミリ秒まで比べる）
+    NoteRequest:
+      type: object
+      required: [at, text, updatedAt]
+      properties:
+        at:
+          type: string
+          format: date-time
+          description: 地点メモを開いた時刻（タイムゾーン付き）
+        location:
+          allOf:
+            - $ref: "#/components/schemas/Point"
+          nullable: true
+          description: 開いたときの位置。まだ位置が無ければ null。不正な位置は 400
+        headingSample:
+          nullable: true
+          description: 方位の材料（質問と同じ）。at より2分以上古いものは使わない。不正なものは無いものとして扱う
+          allOf:
+            - $ref: "#/components/schemas/Point"
+            - type: object
+              required: [at]
+              properties:
+                at:
+                  type: string
+                  format: date-time
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: 本文。空白だけは 400。前後の空白は落とす
+        updatedAt:
+          type: string
+          format: date-time
+          description: Android が地点メモを変えた時刻（タイムゾーン付き。ミリ秒まで比べる）
+    NoteSaved:
+      type: object
+      required: [noteId, applied, address, headingDegrees]
+      properties:
+        noteId:
+          type: string
+          format: uuid
+        applied:
+          type: boolean
+        address:
+          type: string
+          nullable: true
+          description: 地点の住所（町名まで）。位置が無いか、確定できなかったら null
+        headingDegrees:
+          type: number
+          nullable: true
+          description: 進行方位（北を0とする度）。方位なしなら null
+    TranscriptionRequest:
+      type: object
+      required: [audio]
+      properties:
+        audio:
+          type: string
+          format: byte
+          description: PCM（16kHz・モノラル・16bit リトルエンディアン）の base64。0.25〜60秒。文字にしたら消す
+    TranscriptionResult:
+      type: object
+      required: [transcriptionId, status, text, failure]
+      properties:
+        transcriptionId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [processing, done, failed]
+        text:
+          type: string
+          nullable: true
+          description: 聞き取った文（done のときだけ）
+        failure:
+          type: string
+          nullable: true
+          enum: [no_speech, transcribe_failed, null]
     RouteChunk:
       type: object
       required: [points]

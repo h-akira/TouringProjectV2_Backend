@@ -185,3 +185,40 @@ def test_a_bad_chunk_is_400(aws):
 def test_a_number_too_large_for_a_float_is_400_not_a_crash(aws):
     result = put_route([{**point(0), "lat": 10 ** 400}])
     assert result["statusCode"] == 400 and "lat and lon" in message(result)
+
+
+def test_a_deleted_ride_is_not_written_back(aws):
+    store.mark_deleted(USER, "ride", RIDE, "2026-10-21T00:00:00.000Z")
+    result = put_ride(ride_body())
+    assert result["statusCode"] == 410 and json.loads(result["body"]) == {"error": "deleted"}
+    assert stored(aws, store.ride_key(USER, RIDE)) is None
+
+
+def test_a_chunk_of_a_deleted_ride_is_410(aws):
+    store.mark_deleted(USER, "ride", RIDE, "2026-10-21T00:00:00.000Z")
+    result = put_route([point(0)])
+    assert result["statusCode"] == 410
+    assert stored(aws, store.route_key(USER, RIDE, 0)) is None
+
+
+def test_another_users_deletion_mark_does_not_stop_the_ride(aws):
+    store.mark_deleted("someone", "ride", RIDE, "2026-10-21T00:00:00.000Z")
+    assert put_ride(ride_body())["statusCode"] == 200
+
+
+def test_a_ride_memo_is_kept_with_the_ride_and_dropped_when_sent_without_one(aws):
+    put_ride(ride_body(memo="  また来たい  "))
+    assert stored(aws, store.ride_key(USER, RIDE))["memo"] == "また来たい"
+    put_ride(ride_body(updatedAt="2026-10-18T10:05:00.000Z"))
+    assert "memo" not in stored(aws, store.ride_key(USER, RIDE))
+
+
+def test_a_ride_memo_of_2000_characters_is_kept_and_2001_is_400(aws):
+    assert put_ride(ride_body(memo="あ" * 2000))["statusCode"] == 200
+    result = put_ride(ride_body(memo="あ" * 2001, updatedAt="2026-10-18T10:05:00.000Z"))
+    assert result["statusCode"] == 400 and "memo" in message(result)
+
+
+def test_a_blank_ride_memo_is_no_memo(aws):
+    put_ride(ride_body(memo="   "))
+    assert "memo" not in stored(aws, store.ride_key(USER, RIDE))

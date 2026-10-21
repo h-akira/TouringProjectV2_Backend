@@ -30,6 +30,15 @@ def response(status: int, body: dict) -> dict:
     }
 
 
+def deleted() -> dict:
+    """410: the record, or its ride, was deleted; the app treats it as sent (slice 3 spec §5.4)."""
+    return response(410, {"error": "deleted"})
+
+
+def no_content() -> dict:
+    return {"statusCode": 204, "headers": {}, "body": ""}
+
+
 def log(record: dict) -> None:
     # One JSON line per event. Callers must not pass question text, answers or positions.
     print(json.dumps(record, ensure_ascii=False))

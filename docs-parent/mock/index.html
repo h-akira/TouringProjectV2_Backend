@@ -590,7 +590,7 @@ button { font: inherit; color: inherit; }
                   <div class="stat"><b>52.8<small style="font-size:12px"> km</small></b><span>距離</span></div>
                   <div class="stat"><b>4</b><span>質問</span></div>
                 </div>
-                <div class="small muted" data-when="paused">一時停止中の質問は走行の記録に入りません（日ごとには残ります）</div>
+                <div class="small muted" data-when="paused">一時停止中は質問できません（再開すると質問できます）</div>
                 <div class="row" style="gap:8px">
                   <button class="btn outline sm grow trip-act" data-act="pauseTrip" data-when="riding failed noreturn"><span class="ti">⏸</span>一時停止</button>
                   <button class="btn primary sm grow trip-act" data-act="resumeTrip" data-when="paused"><span class="ti">▶</span>再開</button>
@@ -601,7 +601,7 @@ button { font: inherit; color: inherit; }
 
               <div class="card trip-card" data-when="idle">
                 <button class="btn primary block" style="min-height:60px;font-size:18px" data-overlay="SC-17">▶ 走行を開始</button>
-                <div class="small muted">記録しなくても質問できます（日ごとの記録に残ります）</div>
+                <div class="small muted">走行を記録しているあいだだけ質問できます</div>
               </div>
 
               <div class="card" style="padding:10px 14px;display:flex;flex-direction:column;gap:8px">
@@ -675,15 +675,6 @@ button { font: inherit; color: inherit; }
             <div class="sheet-body" id="tripBody"></div>
           </section>
 
-          <!-- SC-15 Questions of a day -->
-          <section class="screen" data-id="SC-15">
-            <div class="appbar"><button class="iconbtn" data-act="back" aria-label="戻る"></button><h1 id="dayTitle">日ごと</h1></div>
-            <div class="map-wrap"><div class="map" id="dayMap"></div>
-              <button class="map-full-btn" data-fullmap="dayMap" aria-label="地図を全画面で表示">⛶</button>
-              <button class="pin-card" id="dayPinCard" hidden></button>
-            </div>
-            <div class="sheet-body" id="dayBody"></div>
-          </section>
 
           <!-- SC-07 Conversation detail -->
           <section class="screen" data-id="SC-07">
@@ -1099,10 +1090,10 @@ const appState = { timing: "send", on: true, current: "com.google.android.apps.m
 const NAV_GROUPS = [
   { title: "はじめに", items: ["SC-01"] },
   { title: "ホーム タブ", items: ["SC-02", "SC-03", "SC-17", "SC-04", "SC-19", "DL-02"] },
-  { title: "記録 タブ", items: ["SC-05", "SC-06", "SC-15", "SC-07", "SC-08", "DL-01"] },
+  { title: "記録 タブ", items: ["SC-05", "SC-06", "SC-07", "SC-08", "DL-01"] },
   { title: "設定 タブ", items: ["SC-09", "SC-16", "SC-10", "SC-11", "SC-12", "SC-21", "SC-18", "DL-03", "SC-13", "SC-14"] }
 ];
-const TAB_OF = { "SC-02": "SC-02", "SC-03": "SC-02", "SC-19": "SC-02", "SC-05": "SC-05", "SC-06": "SC-05", "SC-15": "SC-05", "SC-07": "SC-05", "SC-08": "SC-05",
+const TAB_OF = { "SC-02": "SC-02", "SC-03": "SC-02", "SC-19": "SC-02", "SC-05": "SC-05", "SC-06": "SC-05", "SC-07": "SC-05", "SC-08": "SC-05",
   "SC-09": "SC-09", "SC-16": "SC-09", "SC-10": "SC-09", "SC-11": "SC-09", "SC-12": "SC-09", "SC-21": "SC-09", "SC-13": "SC-09", "SC-14": "SC-09", "SC-18": "SC-09" };
 
 const SPEC = {
@@ -1142,7 +1133,7 @@ const SPEC = {
 <h3>走行の状態</h3><table><tr><th>状態</th><th>表示</th><th>操作</th></tr>
 <tr><td>記録していない</td><td>「走行を開始」を大きく（高さ60px以上）</td><td>開始（SC-17 で名前を付ける）</td></tr>
 <tr><td>記録中</td><td>赤い点滅「走行を記録中」・名前・走行時間・距離・質問数</td><td>一時停止／終了</td></tr>
-<tr><td>一時停止中</td><td>灰色「一時停止中」・走行時間は止まる・「一時停止中の質問は走行の記録に入らない」</td><td>再開／終了</td></tr></table>
+<tr><td>一時停止中</td><td>灰色「一時停止中」・走行時間は止まる・「一時停止中は質問できない」（押して話すは押せない形）</td><td>再開／終了</td></tr></table>
 <ul>
 <li>一時停止は休憩・食事・宿泊・フェリーや電車での移動などを想定する。一時停止中はルートを記録しない。</li>
 <li>走行時間は一時停止中を含めない。距離も一時停止中の移動を含めない。</li>
@@ -1154,11 +1145,12 @@ const SPEC = {
 <li>記録中・一時停止中は端末の通知にもその状態を出し続ける（タップでこの画面）。ステータスバーの REC／⏸ はその表現。</li></ul>
 <h3>進行方向と地点メモ</h3><ul>
 <li>「北西へ走行中」と、右手・左手の方角。方位磁針の矢印は進行方向を指す。</li>
-<li>同じカードの右に「📝 地点メモ」を置く（高さを増やさない）。停車してすぐ書けるよう、押すと SC-19 を新規で開く。走行を記録していないときも出す。</li>
+<li>同じカードの右に「📝 地点メモ」を置く（高さを増やさない）。停車してすぐ書けるよう、押すと SC-19 を新規で開く。走行を記録していないときは出さない（記録中と一時停止中だけ。adr/0008）。</li>
 <li>停車中・曲がった直後で方位が出せないときは「進行方向：走り出すと出ます」。</li></ul>
 <h3>質問の入口</h3><ul>
 <li>走行中の質問はインカムのボタンだけを想定する。「インカムのボタンで話せます」という小さな待機の表示を置き、使える状態だと分かるようにする（大きくはしない）。</li>
-<li>「押して話す」🎤「文字で質問」⌨ はテストや停車中のためのもので、上部のバーに小さなアイコンボタンとして置く。「押して話す」は SC-03 の録音中へ。</li>
+<li>質問を受けるのは走行の記録中だけ（adr/0008）。走行を記録していないとき・一時停止中にインカムのボタンを押すと、録音を始めず、質問できないこと（一時停止中なら、再開すると質問できること）を端末の音声で知らせる。</li>
+<li>「押して話す」🎤「文字で質問」⌨ はテストや停車中のためのもので、上部のバーに小さなアイコンボタンとして置く。「押して話す」は SC-03 の録音中へ。記録していないとき・一時停止中は押せない形にして、理由を添える。</li>
 <li>「文字で質問」は下からシートを開く。入力は500字まで。送ると SC-03 の回答待ちから始まる。文字で聞いても回答は読み上げる。</li></ul>
 <h3>会話の続き</h3><ul>
 <li>会話の文脈は続けるのが基本。区切るのは、利用者が「新しい会話を始める」（DL-02）を押したときと、最後の質問から一定の時間が経ったときだけ。走行の開始・一時停止・再開・終了では区切らない。</li>
@@ -1224,7 +1216,7 @@ const SPEC = {
 <li>要約: 走行時間（一時停止を除く）、距離、質問数、開始〜終了の時刻、一時停止の回数と合計時間。日をまたぐときは期間（◯月◯日〜◯日）。</li>
 <li>最長時間に達したときはこのシートを出さず、自動で保存する（名前は開始時に付けたもののまま。あとで SC-06 で変えられる）。</li>
 <li>名前は開始時（SC-17）に付けたものを入れておく。ここでも変えられる（あとから SC-06 でも変えられる）。空にはできない。</li>
-<li>「終了して保存」で記録を確定し、その走行の SC-06 を開く。保存はまず端末に行い、クラウドへは裏で送る。</li>
+<li>「終了して保存」で記録を確定し、ホームに戻る（振り返りは記録のタブから。adr/0007）。保存はまず端末に行い、クラウドへは裏で送る。</li>
 <li>「走行を続ける」・外側のタップで閉じ、もとの状態（記録中／一時停止中）に戻る。</li>
 <li>質問が0件・距離がごく短い走行でも保存する（削除は SC-06 から）。</li></ul>` },
 
@@ -1232,7 +1224,7 @@ const SPEC = {
     body: `<ul>
 <li>SC-02 の「走行を開始」で下から出る。</li>
 <li>名前は必須。入力欄は空で開き、例を薄く出す（「例: 箱根・御殿場」）。名前を入れるまで「開始」は押せない。</li>
-<li>日付を使った既定の名前は付けない（日ごとの記録と見分けがつかなくなるため）。</li>
+<li>日付を使った既定の名前は付けない（日をまたぐ走行もあり、日付では見分けにくいため）。</li>
 <li>40字まで。同じ名前の走行があってもよい。</li>
 <li>「開始」で記録を始め、SC-02 は「走行を記録中」になる。走行中のホームの上部にはこの名前を出す。</li>
 <li>「やめる」・外側のタップで閉じ、記録は始めない。</li>
@@ -1241,16 +1233,15 @@ const SPEC = {
   "SC-19": { name: "地点メモ", role: "今いる地点（または記録の上の地点）にメモを書く。走行のメモとは別のもの。", states: [["new","ホームから新規"],["voice","声で入力中"],["edit","記録から開いた"],["offline","通信できない"]],
     body: `<h3>地点メモとは</h3><ul>
 <li>日時・位置・進行方向と結びついたメモ。質問とも、走行全体に付ける「走行のメモ」（SC-08）とも別のもの。</li>
-<li>走行の記録中（一時停止中を除く）に書いたものはその走行にも結びつく。どのメモも日ごとの記録には必ず出る。</li>
+<li>書けるのは走行の記録中と一時停止中で、書いたときの走行に結びつく（adr/0008）。</li>
 <li>地図では質問（オレンジ）とは別の色（緑）のピンで出し、質問とは別の通し番号を振る。</li>
-<li>走行を記録していなくても書ける（質問と同じ扱い）。新規で開いたとき、どこに残るか（日ごとだけか、走行にも入るか）を上部に出す。</li></ul>
+<li>走行を記録していないときは書けない（ホームの「📝 地点メモ」は出さない）。新規で開いたとき、どの走行に入るかを上部に出す。</li></ul>
 <h3>開き方</h3><ul>
 <li>ホームの「📝 地点メモ」から新規で開く。停車してすぐ書けるように、確認などを挟まない。位置は開いた時点の現在地。</li>
-<li>記録（SC-06・SC-15）のピンや時系列の行から、既存のメモを開いて直す・消す。</li>
-<li>日ごと（SC-15）から開いたときは、走行の情報（走行の名前など）を出さない（走行と日ごとは独立）。</li></ul>
+<li>記録（SC-06）のピンや時系列の行から、既存のメモを開いて直す・消す。</li></ul>
 <h3>入力</h3><ul>
 <li>文字で書く（2000字まで）。開いたら入力欄にフォーカスしてキーボードを出す。</li>
-<li>「🎤 声で入力」で録音し、もう一度押す（またはインカムのボタン）と文字にして入力欄に足す。声は文字にするためだけにサーバーへ送り、AI には聞かない。音声は残さない。</li>
+<li>「🎤 声で入力」（またはインカムのボタン）で録音し、もう一度押す（またはインカムのボタン）と文字にして入力欄に足す。この画面を開いているあいだ、インカムのボタンは質問を始めない。声は文字にするためだけにサーバーへ送り、AI には聞かない。音声は残さない。</li>
 <li>通信できないときは声での入力はできない（文字で書けば保存はできる。通信が戻ったら送る）。</li>
 <li>右上「保存」で保存して戻る。左上 ✕ で取り消し（変更があれば破棄を確認）。空のまま保存はできない。</li>
 <li>記録から開いたときは「この地点メモを削除」（DL-01）。</li></ul>` },
@@ -1260,22 +1251,15 @@ const SPEC = {
 <li>SC-02 の「新しい会話を始める」で出る。</li>
 <li>本文: 「AI はこれまでの会話を踏まえずに答えます。記録は残ります。」</li>
 <li>「始める」で文脈を区切り、トーストで「新しい会話を始めました」と知らせる。</li>
-<li>区切った位置は記録にも残り、SC-06・SC-15 の一覧に「ここから新しい会話」の区切りとして出る。</li></ul>` },
+<li>区切った位置は記録にも残り、SC-06 の一覧に「ここから新しい会話」の区切りとして出る。</li></ul>` },
 
-  "SC-05": { name: "記録一覧", role: "記録を「走行ごと」と「日ごと」の2つの切り口で一覧する。", states: [["rides","走行"],["days","日ごと"]],
-    body: `<h3>切り替え</h3><ul>
-<li>上部の切り替えで「走行」「日ごと」を選ぶ。選んだほうを覚えておき、次に開いたときもそのまま出す。</li>
-<li>どちらも新しい順。上部に保存の状態（未送信の記録があればその旨）。タップで SC-14。</li></ul>
-<h3>走行</h3><ul>
+  "SC-05": { name: "記録一覧", role: "走行を一覧する（日ごとの記録はやめた。adr/0008）。", states: [["rides","走行"]],
+    body: `<h3>一覧</h3><ul>
+<li>新しい順。上部に保存の状態（未送信の記録があればその旨）。タップで SC-14。</li>
 <li>1行に1走行: 名前、日付（泊まりがけは期間）と開始〜終了の時刻、距離・走行時間・質問数・一時停止の回数。メモがあれば 📝。</li>
 <li>一覧に地図・ルートの縮図は出さない（地図は SC-06 で見る）。</li>
 <li>記録中・一時停止中の走行は一番上に、その状態とともに出す。</li>
 <li>行のタップで SC-06。</li></ul>
-<h3>日ごと</h3><ul>
-<li><b>質問は日ごとに見るのが基本。</b>走行の記録とは独立して、その日のすべての質問をまとめる。</li>
-<li>1行に1日。出すのは日付と質問数（地点メモがあればその数も）だけ（走行の名前や地図は出さない）。</li>
-<li>質問か地点メモのあった日だけを出す。</li>
-<li>行のタップで SC-15。</li></ul>
 <p class="small">文字での検索・書き出しは持たない（要件定義 §8）。</p>` },
 
   "SC-06": { name: "走行の詳細", role: "1つの走行のルートと、その走行中にした質問を地図で見る。", states: [["t1","休憩で一時停止"],["t2","泊まりがけ"],["t3","フェリーを挟む"]],
@@ -1283,7 +1267,7 @@ const SPEC = {
 <li>国土地理院の淡色地図。右下に出典を表示する。ダークの外観では地図の色を反転して暗くする。</li>
 <li>ルートを区間ごとに線で描き、出発（緑）と到着（黒）の印を置く。開いたときはルート全体が収まる縮尺。</li>
 <li>一時停止の区間（記録していない区間）は、前の区間の終わりと次の区間の始まりを灰色の破線で結ぶ（フェリーなどで離れていても繋がりが分かる）。</li>
-<li>この走行の記録中にした質問の地点に、番号付きのピンを立てる。一時停止中の質問は出さない。</li>
+<li>この走行の記録中にした質問の地点に、番号付きのピンを立てる（質問は記録中だけ受ける）。</li>
 <li>地図の左上の ⛶ で地図を全画面にする（タブも隠す）。全画面でも質問の切り替え・ピンのタップはそのまま使える。✕ か端末の戻る操作で元に戻る。</li>
 <li>この走行の記録中に書いた地点メモを、質問とは別の色（緑）で、質問とは別の通し番号のピンで出す。タップで要約カード、カードのタップで SC-19。</li>
 <li>地図の右上の切り替え「💬 質問」「📝 地点メモ」で、それぞれのピンを出す／隠す。両方隠せばルートだけを見られる。選んだ状態は覚えておき、次に開いたときもそのまま。下の時系列の一覧は切り替えに関係なく出す。</li>
@@ -1293,30 +1277,19 @@ const SPEC = {
 <li>走行のメモ（あれば）。無ければ「＋ 走行のメモ」。SC-08 で編集。</li>
 <li>時系列: 日付の見出し（日をまたぐとき）、質問（番号・時刻・場所・質問2行まで）、地点メモ（緑の番号・時刻・場所・本文2行まで。タップで SC-19）、一時停止（「⏸ 一時停止 09:44〜10:02（18分）」）、会話の区切り。</li>
 <li>行のタップで SC-07。SC-07 の前後の移動はこの走行の質問の中で行う。</li>
-<li>日ごとの記録とは独立しているので、日ごとの画面へのリンクは置かない。</li>
 <li>最長時間に達して自動で終了した走行は、要約に「自動で終了」と出す。</li></ul>
 <h3>メニュー（⋮）</h3><ul>
 <li>名前を変更／走行のメモ／この走行を削除（DL-01）。</li></ul>` },
 
-  "SC-15": { name: "日ごとの質問", role: "ある日にしたすべての質問を、地図と一覧で見る。走行の記録とは完全に独立している。", states: [["2026-10-16","10月16日"],["2026-10-15","10月15日"],["2026-10-11","10月11日"]],
+  "SC-07": { name: "会話の詳細", role: "1件の質問と回答を読む。", states: [["ride","走行から開いた"],["offline","質問できなかった地点"]],
     body: `<ul>
-<li>日ごとの記録は走行の記録と独立している。走行の名前・ルート・走行中かどうかは出さず、走行の画面へのリンクも置かない。</li>
-<li>地図: その日の質問の地点に番号付きのピン（オレンジ）、地点メモに別の通し番号のピン（緑）を立てる。ピンのタップで要約カード、カードのタップで SC-07／SC-19。</li>
-<li>地図の左上の ⛶ で全画面にできる（SC-06 と同じ）。</li>
-<li>一覧: 質問と地点メモを時刻順に混ぜて出す。会話の区切りも出す。行のタップで SC-07／SC-19。</li>
-<li>SC-07 の前後の移動は、この日の質問の中で行う。</li>
-<li>日付は質問した時刻で決める（0時をまたいだら次の日）。</li></ul>` },
-
-  "SC-07": { name: "会話の詳細", role: "1件の質問と回答を読む。", states: [["ride","走行から開いた"],["day","日ごとから開いた"],["offline","質問できなかった地点"]],
-    body: `<ul>
-<li>見出しに、開いた元の一覧の中での位置（走行から開いたら「会話 3 / 5」、日ごとから開いたら「10月16日 3 / 6」）。‹ › でその一覧の前後へ移る。</li>
+<li>見出しに、走行の質問の中での位置（「会話 3 / 5」）。‹ › でその走行の前後の質問へ移る。</li>
 <li>小さな地図: その地点のピン。走行から開いたときだけ、その走行のルートを淡く描く。</li>
 <li>日時・場所（住所）・進行方向（右手・左手の方角）。方位が出ていなかった質問は「停車中」。</li>
-<li>走行と日ごとは独立しているので、この画面から他方へ移るリンクは置かない。</li>
 <li>質問（聞き取られた文）と回答を吹き出しで。会話の文脈の何問目かを小さく添える。</li>
 <li>声で聞いたか文字で聞いたかを出す。</li>
 <li>通信できず質問できなかった地点は、質問と回答の代わりに「📵 通信できず、質問できなかった」と出す。質問の内容は残っていないので、何を聞きたかったかはメモに書けることを示す。</li>
-<li>一覧（SC-06・SC-15）・地図のピンでも、この地点は「（通信できず、質問できなかった）」と出す。</li></ul>
+<li>一覧（SC-06）・地図のピンでも、この地点は「（通信できず、質問できなかった）」と出す。</li></ul>
 <h3>音声</h3><ul>
 <li>この画面に音声は出さない。質問の音声は原則として残さず、確認用の直近10件だけを SC-12（設定 > 録音の確認）で聞ける。</li></ul>
 <h3>メモ・削除</h3><ul>
@@ -1332,14 +1305,14 @@ const SPEC = {
 
   "DL-01": { name: "削除の確認", role: "会話・走行・録音などを消す前に確かめる。", states: [["conv","会話"],["trip","走行"],["memo","地点メモ"],["rec","録音"],["key","接続キー"]],
     body: `<table><tr><th>対象</th><th>本文</th><th>削除後</th></tr>
-<tr><td>会話</td><td>質問・回答・メモが削除されます。元に戻せません。</td><td>開いた元の一覧（SC-06／SC-15）へ戻る</td></tr>
-<tr><td>走行</td><td>ルートと走行のメモが削除されます。質問は日ごとの記録に残ります。元に戻せません。</td><td>SC-05 へ戻る</td></tr>
+<tr><td>会話</td><td>質問・回答・メモが削除されます。元に戻せません。</td><td>SC-06 へ戻る</td></tr>
+<tr><td>走行</td><td>ルート・走行のメモと、その走行の質問・地点メモが削除されます。元に戻せません。</td><td>SC-05 へ戻る</td></tr>
 <tr><td>地点メモ</td><td>メモが削除されます。元に戻せません。</td><td>開いた元の画面へ戻る</td></tr>
 <tr><td>録音</td><td>端末の音声だけを消します。文字の記録は残ります。</td><td>SC-12 のまま</td></tr>
 <tr><td>接続キー</td><td>質問できなくなります。記録は残ります。</td><td>SC-13 のまま</td></tr></table>
 <ul><li>削除のボタンは赤。「やめる」を左に置き、削除を右に置く。</li>
 <li>削除は端末とクラウドの両方に反映する。</li>
-<li>走行と日ごとは独立しているので、走行を削除しても質問は消えない。質問を消したいときは1件ずつ消す。</li></ul>` },
+<li>質問と地点メモは走行の中にしか無いので、走行を削除すると一緒に消える（adr/0008）。</li></ul>` },
 
   "SC-09": { name: "設定", role: "設定の項目を分類して並べ、それぞれの画面へ振り分ける。", states: [],
     body: `<ul>
@@ -1509,7 +1482,6 @@ function show(id) {
   const spec = SPEC[id];
   if (spec.states.length && !states[id]) states[id] = spec.states[0][0];
   if (id === "SC-06") states[id] = params.trip;
-  if (id === "SC-15") states[id] = params.day;
   applyState(id);
   $("#device").classList.toggle("fullcolor", id === "SC-03");
   $("#tabbar").hidden = ["SC-03", "SC-01", "SC-08", "SC-19"].includes(id);
@@ -1534,7 +1506,6 @@ function setState(id, st) {
   if (OVERLAYS.includes(id)) { params.dl = st; openOverlay(id, { dl: st }); return; }
   states[id] = st;
   if (id === "SC-06") params.trip = st;
-  if (id === "SC-15") params.day = st;
   if (id === "SC-19") { if (st === "edit") params.memoId = params.memoId || "m1"; if (st === "new" || st === "offline") params.memoId = null; }
   if (id === "SC-07") {
     const pick = { ride: ["q15", "ride"], day: ["q16", "day"], offline: ["q08b", "ride"] }[st];
@@ -1582,7 +1553,7 @@ function openOverlay(id, opts) {
     if (kind === "rec" && current !== "SC-12") { stack = ["SC-09", "SC-12"]; show("SC-12"); }
         const map = {
       conv: ["この会話を削除しますか？", "質問・回答・メモが削除されます。元に戻せません。", () => back()],
-      trip: ["この走行を削除しますか？", `ルートと走行のメモが削除されます。質問は日ごとの記録に残ります。元に戻せません。`, () => { stack = ["SC-05"]; show("SC-05"); }],
+      trip: ["この走行を削除しますか？", `ルート・走行のメモと、その走行の質問・地点メモが削除されます。元に戻せません。`, () => { stack = ["SC-05"]; show("SC-05"); }],
       memo: ["この地点メモを削除しますか？", "メモが削除されます。元に戻せません。", () => back()],
       rec: ["録音をすべて消しますか？", "端末の音声だけを消します。文字の記録は残ります。", () => toast("録音を消しました")],
       key: ["接続キーを削除しますか？", "質問できなくなります。記録は残ります。", () => toast("キーを削除しました")]
@@ -1622,7 +1593,7 @@ function renderSpec(id) {
 let convoTimer = null;
 function render(id) {
   clearInterval(convoTimer);
-  ({ "SC-01": renderSetup, "SC-02": renderHome, "SC-03": renderConvo, "SC-05": renderList, "SC-06": renderTrip, "SC-15": renderDay,
+  ({ "SC-01": renderSetup, "SC-02": renderHome, "SC-03": renderConvo, "SC-05": renderList, "SC-06": renderTrip,
      "SC-07": renderConv, "SC-08": renderMemo, "SC-19": renderPointMemo, "SC-10": renderReturn, "SC-12": renderRec }[id] || (() => {}))();
 }
 
@@ -1666,11 +1637,9 @@ function renderConvo() {
 }
 
 function renderList() {
-  const mode = states["SC-05"];
-  let html = `<div class="seg-tabs"><button data-list-mode="rides" aria-pressed="${mode === "rides"}">走行</button><button data-list-mode="days" aria-pressed="${mode === "days"}">日ごと</button></div>
-    <button class="sync-pill" data-go="SC-14"><span class="dot" style="background:var(--ok)"></span><span class="grow">すべてクラウドに保存済み</span>${CHEV}</button>`;
+  let html = `<button class="sync-pill" data-go="SC-14"><span class="dot" style="background:var(--ok)"></span><span class="grow">すべてクラウドに保存済み</span>${CHEV}</button>`;
   html += `<div class="section-title">2026年10月</div><div class="list">`;
-  if (mode === "rides") {
+  {
     html += RIDES.map(r => {
       const qs = rideQs(r.id);
       const pauses = r.segments.length - 1;
@@ -1679,9 +1648,6 @@ function renderList() {
           <div class="s">${rideDateLabel(r)} · ${rideSpan(r)}</div>
           <div class="s">${r.dist} km · ${r.moving} · 質問 ${qs.length}${pauses ? ` · ⏸ ${pauses}` : ""}</div></div>${CHEV}</button>`;
     }).join("");
-  } else {
-    html += allDays().map(d => `<button class="list-item" data-go-day="${d}">
-        <div class="grow"><div class="t">${fmtDay(d)}</div></div><span class="val">質問 ${dayQs(d).length}${dayMemos(d).length ? ` · メモ ${dayMemos(d).length}` : ""}</span>${CHEV}</button>`).join("");
   }
   html += `</div>`;
   $("#listBody").innerHTML = html;
@@ -1796,24 +1762,6 @@ function renderTrip() {
   }, 30);
 }
 
-function renderDay() {
-  const d = params.day; const qs = dayQs(d); const memos = dayMemos(d);
-  $("#dayTitle").textContent = fmtDay(d);
-  $("#dayPinCard").hidden = true; selPin.dayMap = null;
-  let html = `<div class="grabber"></div><div class="section-title">質問 ${qs.length}${memos.length ? ` · 地点メモ ${memos.length}` : ""}</div><div class="list">`;
-  html += timelineHtml(qs, memos, "day");
-  html += `</div>`;
-  $("#dayBody").innerHTML = html;
-  decorate($("#dayBody"));
-  setTimeout(() => {
-    const m = makeMap("dayMap"); if (!m) return;
-    m.invalidateSize(); m._layer.clearLayers();
-    attachPins("dayMap", "dayPinCard", qs, memos, "day");
-    const pts = [...qs.map(pos), ...memos.map(pos)];
-    if (pts.length > 1) m.fitBounds(pts, { padding: [40, 40], maxZoom: 15 }); else m.setView(pts[0], 14);
-  }, 30);
-}
-
 // Point memo editor (new from home, or an existing memo from the records).
 let pmKeep = false;  // keep the text being edited while switching voice input on/off
 function renderPointMemo() {
@@ -1825,11 +1773,8 @@ function renderPointMemo() {
   $("#pmWhere").textContent = "📍 " + (mm ? mm.addr : "静岡県御殿場市新橋");
   const home = states["SC-02"];
   $("#pmRide").textContent = mm
-    ? (params.memoFrom === "day" ? "日ごとの記録の地点メモ"
-      : mm.ride ? `走行「${rideById(mm.ride).title}」の記録中に書いたメモ` : "走行を記録していないときに書いたメモ")
-    : (home === "idle" ? "走行を記録していません。日ごとの記録に残ります"
-      : home === "paused" ? "一時停止中です。日ごとの記録に残ります（走行には入りません）"
-      : "日ごとの記録に残り、走行「箱根から御殿場へ」にも入ります");
+    ? (mm.ride ? `走行「${rideById(mm.ride).title}」で書いたメモ` : "")
+    : "走行「箱根から御殿場へ」に入ります";
   $("#pmDelete").hidden = isNew || st === "voice";
   const v = $("#pmVoice");
   v.disabled = st === "offline";
@@ -1981,8 +1926,7 @@ document.addEventListener("click", e => {
   if (t.hasAttribute("data-close")) { closeOverlays(); renderAfterClose(); return; }
   if (t.dataset.overlay) return openOverlay(t.dataset.overlay, { dl: t.dataset.dl });
   if (t.dataset.goTrip) { params.trip = t.dataset.goTrip; return go("SC-06"); }
-  if (t.dataset.goMemo) { params.memoId = t.dataset.goMemo; params.memoFrom = current === "SC-15" ? "day" : "ride"; states["SC-19"] = "edit"; return go("SC-19"); }
-  if (t.dataset.goDay) { params.day = t.dataset.goDay; return go("SC-15"); }
+  if (t.dataset.goMemo) { params.memoId = t.dataset.goMemo; params.memoFrom = "ride"; states["SC-19"] = "edit"; return go("SC-19"); }
   if (t.dataset.goConv) { const [qid, from] = t.dataset.goConv.split("|"); params.conv = qid; params.from = from; const q = qById(qid); if (q.ride) params.trip = q.ride; params.day = q.day; return go("SC-07"); }
   if (t.dataset.go) { if (t.dataset.stateTo) states[t.dataset.go] = t.dataset.stateTo; closeOverlays(); return go(t.dataset.go); }
   if (t.dataset.step) { const el = $("#maxSec"); const v = Math.min(60, Math.max(10, parseInt(el.textContent, 10) + +t.dataset.step)); el.textContent = v + "秒"; return; }
@@ -1993,7 +1937,7 @@ document.addEventListener("click", e => {
   if (act === "startTrip") { if (t.disabled) return; closeOverlays(); states["SC-02"] = "riding"; show("SC-02"); toast("走行の記録を始めました"); return; }
   if (act === "pauseTrip") { states["SC-02"] = "paused"; show("SC-02"); toast("一時停止しました（ルートを記録しません）"); return; }
   if (act === "resumeTrip") { states["SC-02"] = "riding"; show("SC-02"); toast("走行の記録を再開しました"); return; }
-  if (act === "endTrip") { closeOverlays(); states["SC-02"] = "idle"; params.trip = "t1"; stack = ["SC-05", "SC-06"]; show("SC-06"); toast("走行を保存しました"); return; }
+  if (act === "endTrip") { closeOverlays(); states["SC-02"] = "idle"; stack = ["SC-02"]; show("SC-02"); toast("走行を保存しました"); return; }
   if (act === "homeTripMemo") { params.memo = "trip"; params.trip = "t1"; stack = ["SC-02"]; return go("SC-08"); }
   if (act === "tripMemo") { closeOverlays(); params.memo = "trip"; return go("SC-08"); }
   if (act === "newMemo") { params.memoId = null; states["SC-19"] = "new"; return go("SC-19"); }
@@ -2022,7 +1966,7 @@ function jump(id) {
   closeOverlays();
   if (OVERLAYS.includes(id)) return openOverlay(id, { dl: id === "DL-01" ? (["trip", "rec", "memo", "key"].includes(params.dl) ? params.dl : "conv") : undefined });
   const roots = { "SC-01": ["SC-01"], "SC-02": ["SC-02"], "SC-03": ["SC-02", "SC-03"], "SC-05": ["SC-05"], "SC-06": ["SC-05", "SC-06"],
-    "SC-15": ["SC-05", "SC-15"], "SC-19": ["SC-02", "SC-19"], "SC-07": ["SC-05", "SC-06", "SC-07"], "SC-08": ["SC-05", "SC-06", "SC-07", "SC-08"], "SC-09": ["SC-09"] };
+"SC-19": ["SC-02", "SC-19"], "SC-07": ["SC-05", "SC-06", "SC-07"], "SC-08": ["SC-05", "SC-06", "SC-07", "SC-08"], "SC-09": ["SC-09"] };
   if (id === "SC-01") states["SC-01"] = "perm";
   if (id === "SC-07") { params.conv = "q15"; params.from = "ride"; params.trip = "t1"; }
   if (id === "SC-08") params.memo = "conv";

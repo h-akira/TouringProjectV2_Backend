@@ -1,4 +1,5 @@
-"""SQS worker: transcribe -> settle facts -> agent -> speech, one ask at a time (spec §6.2)."""
+"""SQS worker: transcribe -> settle facts -> agent -> speech, one ask at a time (spec §6.2). A point memo's recording
+is only transcribed (07 UC-6)."""
 from __future__ import annotations
 
 import json
@@ -70,7 +71,9 @@ def _run(user: str, ask_id: str, item: dict, steps: Steps) -> None:
 
     def finish(status: str, error: Optional[str] = None, **fields) -> None:
         outcome.update(fields)
-        store.update_ask(user, ask_id, {"status": status, "error": error, "timings": timings, **fields})
+        if not store.update_ask(user, ask_id, {"status": status, "error": error, "timings": timings, **fields}):
+            log({"event": "ask_gone", "askId": ask_id})
+            return
         log({"event": "ask_done", "askId": ask_id, "status": status, "error": error, "inputType": item.get("inputType"),
              "durationsMs": _durations(timings), "usage": fields.get("usage"), "modelId": fields.get("modelId"),
              "tools": fields.get("tools")})
@@ -125,7 +128,26 @@ def _run(user: str, ask_id: str, item: dict, steps: Steps) -> None:
     finish("completed", None, answerAudioKey=key, **answered)
 
 
+def process_transcription(user: str, transcription_id: str, steps: Steps) -> None:
+    item = store.claim_transcription(user, transcription_id)
+    if item is None:
+        log({"event": "transcription_skipped", "transcriptionId": transcription_id})
+        return
+    try:
+        text = steps.transcribe(_take_audio(item["audioKey"]))
+    except Exception as error:  # noqa: BLE001 - reported as transcribe_failed
+        log({"event": "transcribe_error", "transcriptionId": transcription_id, "error": type(error).__name__})
+        store.finish_transcription(user, transcription_id, {"status": "failed", "failure": "transcribe_failed"})
+        return
+    fields = {"status": "done", "text": text} if text else {"status": "failed", "failure": "no_speech"}
+    store.finish_transcription(user, transcription_id, fields)
+    log({"event": "transcription_done", "transcriptionId": transcription_id, "status": fields["status"]})
+
+
 def handler(event, context):
     for record in event.get("Records", []):
         message = json.loads(record["body"])
-        process(message["userName"], message["askId"], DEFAULT_STEPS)
+        if message.get("kind") == "transcription":
+            process_transcription(message["userName"], message["transcriptionId"], DEFAULT_STEPS)
+        else:
+            process(message["userName"], message["askId"], DEFAULT_STEPS)

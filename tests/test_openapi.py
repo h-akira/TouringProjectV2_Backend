@@ -12,11 +12,30 @@ def test_is_valid_openapi():
 
 
 def test_routes():
-    assert set(SPEC["paths"]) == {"/health", "/asks", "/asks/{askId}", "/rides/{rideId}", "/rides/{rideId}/route/{seq}"}
-    assert set(SPEC["paths"]["/asks"]) == {"post"}
-    assert set(SPEC["paths"]["/asks/{askId}"]) == {"get"}
-    assert set(SPEC["paths"]["/rides/{rideId}"]) == {"put"}
-    assert set(SPEC["paths"]["/rides/{rideId}/route/{seq}"]) == {"put"}
+    assert {path: set(methods) for path, methods in SPEC["paths"].items()} == {
+        "/health": {"get"},
+        "/asks": {"post"},
+        "/asks/{askId}": {"get", "delete"},
+        "/asks/{askId}/memo": {"put"},
+        "/rides/{rideId}": {"put", "delete"},
+        "/rides/{rideId}/route/{seq}": {"put"},
+        "/rides/{rideId}/notes/{noteId}": {"put", "delete"},
+        "/transcriptions": {"post"},
+        "/transcriptions/{transcriptionId}": {"get"},
+    }
+
+
+def test_the_memo_and_note_limits_match_the_validation():
+    from lib import notes, rides
+    schemas = SPEC["components"]["schemas"]
+    assert schemas["RideRequest"]["properties"]["memo"]["maxLength"] == rides.MEMO_MAX
+    assert schemas["AskMemoRequest"]["properties"]["memo"]["maxLength"] == rides.MEMO_MAX
+    assert schemas["NoteRequest"]["properties"]["text"]["maxLength"] == notes.NOTE_TEXT_MAX
+
+
+def test_transcription_failures_match_the_worker():
+    failures = SPEC["components"]["schemas"]["TranscriptionResult"]["properties"]["failure"]["enum"]
+    assert set(failures) - {None} == {"no_speech", "transcribe_failed"}
 
 
 def test_the_ride_limits_match_the_validation():
