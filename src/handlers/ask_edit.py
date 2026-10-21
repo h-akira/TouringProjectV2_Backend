@@ -1,7 +1,7 @@
-"""PUT /asks/{askId}/memo: the app's changes to an ask it keeps (slice 3 spec §6.2)."""
+"""PUT /asks/{askId}/memo and DELETE /asks/{askId}: the app's changes to an ask it keeps (slice 3 spec §6.2)."""
 from __future__ import annotations
 
-from handlers.common import deleted, log, response
+from handlers.common import deleted, iso, log, no_content, response, utc_now
 from lib import rides, store
 from lib.request import UUID_RE, BadRequest, user_name
 
@@ -10,6 +10,10 @@ def handler(event, context):
     try:
         user = user_name(event)
         ask_id = _ask_id(event)
+        if event.get("httpMethod") == "DELETE":
+            store.delete_ask(user, ask_id, iso(utc_now()))
+            log({"event": "ask_deleted", "askId": ask_id})
+            return no_content()
         return _memo(event, user, ask_id)
     except BadRequest as error:
         return response(400, {"error": "bad_request", "message": str(error)})

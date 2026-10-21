@@ -1,8 +1,9 @@
 """PUT /rides/{rideId}, PUT /rides/{rideId}/route/{seq} and PUT /rides/{rideId}/notes/{noteId}: the app sends its
-rides, their routes and their point memos (07 UC-7, slice 2 spec §6.2, slice 3 spec §6.2). Reading them back comes later."""
+rides, their routes and their point memos (07 UC-7, slice 2 spec §6.2, slice 3 spec §6.2). DELETE /rides/{rideId} and
+DELETE /rides/{rideId}/notes/{noteId} remove them and leave deletion marks (adr/0009). Reading them back comes later."""
 from __future__ import annotations
 
-from handlers.common import deleted, iso, log, parse_iso, response, utc_now
+from handlers.common import deleted, iso, log, no_content, parse_iso, response, utc_now
 from lib import address, notes, rides, store
 from lib.geo import heading_degrees
 from lib.request import BadRequest, user_name
@@ -13,6 +14,8 @@ def handler(event, context):
         user = user_name(event)
         ride_id = rides.ride_id(event)
         path = event.get("pathParameters") or {}
+        if event.get("httpMethod") == "DELETE":
+            return _delete(event, user, ride_id)
         if path.get("noteId") is not None:
             return _note(event, user, ride_id)
         if path.get("seq") is not None:
@@ -74,3 +77,15 @@ def _note(event: dict, user: str, ride_id: str) -> dict:
     log({"event": "note_saved", "rideId": ride_id, "noteId": note_id, "applied": applied, "hasPlace": kept.get("address") is not None})
     return response(200, {"noteId": note_id, "applied": applied, "address": kept.get("address"),
                           "headingDegrees": kept.get("headingDegrees")})
+
+
+def _delete(event: dict, user: str, ride_id: str) -> dict:
+    # Deleting twice, or deleting what never arrived, is the same as deleting once (slice 3 spec §6.2).
+    if (event.get("pathParameters") or {}).get("noteId") is not None:
+        note_id = rides.path_id(event, "noteId")
+        store.delete_note(user, ride_id, note_id, iso(utc_now()))
+        log({"event": "note_deleted", "rideId": ride_id, "noteId": note_id})
+        return no_content()
+    removed = store.delete_ride(user, ride_id, iso(utc_now()))
+    log({"event": "ride_deleted", "rideId": ride_id, **removed})
+    return no_content()

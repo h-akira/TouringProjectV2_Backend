@@ -196,3 +196,52 @@ def put_route_chunk(user: str, ride_id: str, seq: int, points: list, saved_at: s
     """A chunk is replaced whole: sending it again leaves one copy. Raises Deleted when the ride has been deleted."""
     item = {**route_key(user, ride_id, seq), "rideId": ride_id, "seq": seq, "points": points, "savedAt": saved_at}
     _write_unless_deleted({"Put": {"TableName": clients.table().name, "Item": _to_item(item)}}, [deleted_key(user, "ride", ride_id)])
+
+
+def _query_keys(user: str, prefix: str, ride_id: Optional[str] = None) -> list:
+    """The records whose sort key starts with prefix (all pages); with ride_id, only those of that ride."""
+    params: dict = {"KeyConditionExpression": "pk = :p AND begins_with(sk, :s)", "ProjectionExpression": "pk, sk",
+                    "ExpressionAttributeValues": {":p": f"USER#{user}", ":s": prefix}}
+    if ride_id is not None:
+        params["FilterExpression"] = "rideId = :r"
+        params["ExpressionAttributeValues"][":r"] = ride_id
+    keys = []
+    while True:
+        page = clients.table().query(**params)
+        keys += page.get("Items", [])
+        if "LastEvaluatedKey" not in page:
+            return keys
+        params["ExclusiveStartKey"] = page["LastEvaluatedKey"]
+
+
+def _delete_all(keys: list) -> None:
+    with clients.table().batch_writer() as batch:
+        for key in keys:
+            batch.delete_item(Key={"pk": key["pk"], "sk": key["sk"]})
+
+
+def delete_ask(user: str, ask_id: str, deleted_at: str) -> None:
+    """Marks the ask deleted, then removes it. Deleting a missing ask still leaves the mark (adr/0009)."""
+    stored = get_ask(user, ask_id)
+    mark_deleted(user, "ask", ask_id, deleted_at, ride_id=(stored or {}).get("rideId"))
+    clients.table().delete_item(Key=ask_key(user, ask_id))
+
+
+def delete_note(user: str, ride_id: str, note_id: str, deleted_at: str) -> None:
+    mark_deleted(user, "note", note_id, deleted_at, ride_id=ride_id)
+    clients.table().delete_item(Key=note_key(user, ride_id, note_id))
+
+
+def delete_ride(user: str, ride_id: str, deleted_at: str) -> dict:
+    """Marks the ride deleted, then removes it with its route, its notes and its asks, marking each note and ask too.
+    The ride's mark goes first: from then on no note or chunk of it can be written, so the query below sees them all."""
+    mark_deleted(user, "ride", ride_id, deleted_at)
+    under = _query_keys(user, f"RIDE#{ride_id}")
+    notes = [k for k in under if "#NOTE#" in k["sk"]]
+    asks = _query_keys(user, "ASK#", ride_id=ride_id)
+    for key in notes:
+        mark_deleted(user, "note", key["sk"].rsplit("#", 1)[1], deleted_at, ride_id=ride_id)
+    for key in asks:
+        mark_deleted(user, "ask", key["sk"].split("#", 1)[1], deleted_at, ride_id=ride_id)
+    _delete_all(under + asks)
+    return {"notes": len(notes), "asks": len(asks), "chunks": sum("#ROUTE#" in k["sk"] for k in under)}
