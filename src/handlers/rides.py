@@ -28,6 +28,8 @@ def _ride(event: dict, user: str, ride_id: str) -> dict:
         "segments": ride.segments,
         "autoEnded": ride.auto_ended,
         "updatedAt": ride.updated_at,
+        # Sent whole with the ride: a ride without a memo drops the stored one (slice 3 spec §6.2).
+        "memo": ride.memo,
         "savedAt": iso(utc_now()),
     })
     log({"event": "ride_saved", "rideId": ride_id, "status": ride.status, "applied": applied})

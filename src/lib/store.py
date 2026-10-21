@@ -137,6 +137,17 @@ def update_ask(user: str, ask_id: str, fields: dict) -> bool:
     return True
 
 
+def put_ask_memo(user: str, ask_id: str, memo: Optional[str], updated_at: str) -> bool:
+    """Sets (or, for None, removes) the ask's memo unless a newer one is stored. False when the ask is missing or the
+    memo is not newer. Raises Deleted when the ask has been deleted."""
+    expression = "SET memoUpdatedAt = :u" + (", memo = :m" if memo is not None else " REMOVE memo")
+    values = {":u": updated_at, **({":m": memo} if memo is not None else {})}
+    update = {"Update": {"TableName": clients.table().name, "Key": ask_key(user, ask_id), "UpdateExpression": expression,
+                         "ConditionExpression": "attribute_exists(pk) AND (attribute_not_exists(memoUpdatedAt) OR memoUpdatedAt < :u)",
+                         "ExpressionAttributeValues": values}}
+    return _write_unless_deleted(update, [deleted_key(user, "ask", ask_id)])
+
+
 def get_ask(user: str, ask_id: str) -> Optional[dict]:
     item = clients.table().get_item(Key=ask_key(user, ask_id)).get("Item")
     return _from_item(item) if item else None
