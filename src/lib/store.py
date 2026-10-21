@@ -203,9 +203,10 @@ def put_route_chunk(user: str, ride_id: str, seq: int, points: list, saved_at: s
 
 
 def _query_keys(user: str, prefix: str, ride_id: Optional[str] = None) -> list:
-    """The records whose sort key starts with prefix (all pages); with ride_id, only those of that ride."""
+    """The records whose sort key starts with prefix (all pages); with ride_id, only those of that ride. Reads are
+    consistent, so a record written just before a deletion is not missed."""
     params: dict = {"KeyConditionExpression": "pk = :p AND begins_with(sk, :s)", "ProjectionExpression": "pk, sk",
-                    "ExpressionAttributeValues": {":p": f"USER#{user}", ":s": prefix}}
+                    "ExpressionAttributeValues": {":p": f"USER#{user}", ":s": prefix}, "ConsistentRead": True}
     if ride_id is not None:
         params["FilterExpression"] = "rideId = :r"
         params["ExpressionAttributeValues"][":r"] = ride_id

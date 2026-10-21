@@ -116,3 +116,20 @@ def test_a_bad_id_to_delete_is_400(aws):
     assert call(ask_edit, "DELETE", askId="ask-1")["statusCode"] == 400
     assert call(ask_edit, "DELETE", user="BAD", askId=ASK)["statusCode"] == 400
     assert sks(aws) == []
+
+
+def test_deleting_a_ride_reads_its_records_with_consistent_reads(aws, monkeypatch):
+    # A note or ask written just before the DELETE must be found; moto is always consistent, so check the request.
+    from lib import clients
+    table = clients.table()
+    queries = []
+    query = table.query
+
+    def spy(**params):
+        queries.append(params)
+        return query(**params)
+
+    monkeypatch.setattr(table, "query", spy)
+    a_ride_with_everything(aws)
+    call(rides, "DELETE", rideId=RIDE)
+    assert len(queries) == 2 and all(q.get("ConsistentRead") is True for q in queries)
