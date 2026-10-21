@@ -56,11 +56,16 @@ def parse_ask_memo(event: dict) -> tuple:
     return memo_text(data.get("memo")), utc_time(data.get("updatedAt"), "updatedAt")
 
 
-def ride_id(event: dict) -> str:
-    value = (event.get("pathParameters") or {}).get("rideId") or ""
+def path_id(event: dict, name: str) -> str:
+    """A UUID from the path (rideId, noteId, askId); a bad one is the sender's mistake, so 400."""
+    value = (event.get("pathParameters") or {}).get(name) or ""
     if not UUID_RE.match(value):
-        raise BadRequest("rideId must be a lowercase UUID")
+        raise BadRequest(f"{name} must be a lowercase UUID")
     return value
+
+
+def ride_id(event: dict) -> str:
+    return path_id(event, "rideId")
 
 
 def chunk_seq(event: dict) -> int:

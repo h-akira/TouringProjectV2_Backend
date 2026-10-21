@@ -61,7 +61,7 @@ def finite_number(value: Any) -> Optional[float]:
     return number if math.isfinite(number) else None
 
 
-def _point(value: Any) -> Optional[dict]:
+def position(value: Any) -> Optional[dict]:
     """A position, or None when it is missing or broken (the question still goes ahead)."""
     if not isinstance(value, dict):
         return None
@@ -71,8 +71,9 @@ def _point(value: Any) -> Optional[dict]:
     return {"latitude": lat, "longitude": lon}
 
 
-def _sample(value: Any) -> Optional[dict]:
-    point = _point(value)
+def heading_sample(value: Any) -> Optional[dict]:
+    """The older position the heading is taken from, or None when it is missing or broken."""
+    point = position(value)
     at = value.get("at") if isinstance(value, dict) else None
     if point is None or not isinstance(at, str):
         return None
@@ -135,5 +136,5 @@ def parse_ask(event: dict) -> AskInput:
         raise BadRequest("rideId must be a lowercase UUID")
 
     return AskInput(
-        audio, text, _point(data.get("location")), _sample(data.get("headingSample")), conversation_id, int(volume_db), ride_id
+        audio, text, position(data.get("location")), heading_sample(data.get("headingSample")), conversation_id, int(volume_db), ride_id
     )

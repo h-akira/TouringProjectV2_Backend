@@ -162,6 +162,26 @@ def route_key(user: str, ride_id: str, seq: int) -> dict:
     return {"pk": f"USER#{user}", "sk": f"RIDE#{ride_id}#ROUTE#{seq:05d}"}
 
 
+def note_key(user: str, ride_id: str, note_id: str) -> dict:
+    # Under the ride, so that deleting the ride finds its notes with its route (slice 3 spec §6.1).
+    return {"pk": f"USER#{user}", "sk": f"RIDE#{ride_id}#NOTE#{note_id}"}
+
+
+def get_note(user: str, ride_id: str, note_id: str) -> Optional[dict]:
+    item = clients.table().get_item(Key=note_key(user, ride_id, note_id)).get("Item")
+    return _from_item(item) if item else None
+
+
+def put_note(user: str, ride_id: str, note_id: str, fields: dict) -> bool:
+    """Writes the note unless a newer one is stored. False when it was not newer. Raises Deleted when the note or its
+    ride has been deleted."""
+    item = {**note_key(user, ride_id, note_id), "noteId": note_id, "rideId": ride_id, **fields}
+    put = {"Put": {"TableName": clients.table().name, "Item": _to_item(item),
+                   "ConditionExpression": "attribute_not_exists(pk) OR updatedAt < :u",
+                   "ExpressionAttributeValues": {":u": fields["updatedAt"]}}}
+    return _write_unless_deleted(put, [deleted_key(user, "note", note_id), deleted_key(user, "ride", ride_id)])
+
+
 def put_ride(user: str, ride_id: str, fields: dict) -> bool:
     """Writes the ride unless a newer one is stored (updatedAt, normalised UTC text). False when it was older.
     Raises Deleted when the ride has been deleted."""
