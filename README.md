@@ -9,7 +9,7 @@ App から質問（PCM の音声か文字）と位置を受け付け、文字起
 
 | 場所 | 中身 |
 |---|---|
-| `openapi.yaml` | App ↔ Backend の API 仕様（正本） |
+| `docs-parent/07a_openapi.yaml` | Android ↔ Backend の API 仕様（親の `docs/07a_openapi.yaml` の写し。正本は親） |
 | `template.yaml`・`samconfig.toml` | SAM（スタック `stack-trv2-dev-backend`） |
 | `src/handlers/` | `health`・`ask`（`POST /asks`）・`result`（`GET /asks/{askId}`）・`ask_edit`（`PUT /asks/{askId}/memo`・`PUT /asks/{askId}/offline`・`DELETE /asks/{askId}`）・`worker`（SQS）・`rides`（`/rides/{rideId}` の `PUT`・`DELETE`、`PUT /rides/{rideId}/route/{seq}`、`/rides/{rideId}/notes/{noteId}` の `PUT`・`DELETE`）・`transcriptions`（`POST /transcriptions`・`GET /transcriptions/{transcriptionId}`）・`records`（`GET /records`） |
 | `src/lib/` | 入力の検証（質問と音声は `request`・走行とメモは `rides`・地点メモは `notes`・質問できなかった地点は `offline`）・方位・プロンプト・住所・記録（削除の跡を含む）・読み出す形（`records`）・会話の時間・Agent・音声合成・文字起こし |
