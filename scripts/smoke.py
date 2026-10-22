@@ -1,5 +1,6 @@
 """End-to-end check of the deployed API. Positions are public landmarks only.
-Every ask is sent with the smoke ride, and the ride is deleted at the end, so a run leaves only deletion marks.
+Every ask (and the unreached ask) is sent with the smoke ride, and the ride is deleted at the end, so a run leaves only
+deletion marks.
 
 Usage: AWS_PROFILE=touring env/bin/python scripts/smoke.py
 """
@@ -10,6 +11,7 @@ import json
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -139,6 +141,57 @@ def transcription_check(api: str, key: str, audio_b64: str) -> bool:
     return check("point memo voice transcribed", ok, f"{elapsed:.1f}s text={body.get('text')} failure={body.get('failure')}")
 
 
+def offline_checks(api: str, key: str, ride_id: str, offline_id: str, taken_id: str) -> list[bool]:
+    url = f"{api}/asks/{offline_id}/offline"
+    unreached = {"askedAt": minutes_ago(12), "location": TOKYO_STATION, "headingSample": {**SOUTH_60M, "at": minutes_ago(12)},
+                 "rideId": ride_id, "updatedAt": minutes_ago(12)}
+    status, body = request("PUT", url, key, USER, unreached)
+    results = [check("unreached ask saved with its place", status == 200 and body.get("applied") is True and bool(body.get("address")),
+                     f"{status} address={body.get('address')} heading={body.get('headingDegrees')}")]
+    status, body = request("PUT", url, key, USER, {**unreached, "updatedAt": minutes_ago(13)})
+    results.append(check("older unreached ask ignored", status == 200 and body.get("applied") is False, str(status)))
+    status, body = request("PUT", f"{api}/asks/{offline_id}/memo", key, USER, {"memo": "何を聞きたかったか", "updatedAt": minutes_ago(1)})
+    results.append(check("memo on an unreached ask", status == 200 and body.get("applied") is True, str(status)))
+    status, body = request("PUT", f"{api}/asks/{taken_id}/offline", key, USER, unreached)
+    results.append(check("unreached ask over a taken ask is 409", status == 409 and body == {"error": "conflict"}, str(status)))
+    return results
+
+
+def read_records(api: str, key: str) -> tuple[list[dict], int]:
+    items, cursor, pages = [], None, 0
+    while True:
+        url = f"{api}/records" + (f"?cursor={urllib.parse.quote(cursor)}" if cursor else "")
+        status, body = request("GET", url, key, USER)
+        if status != 200:
+            return items, -status
+        items += body["items"]
+        pages += 1
+        cursor = body.get("cursor")
+        if not cursor:
+            return items, pages
+
+
+def records_check(api: str, key: str, ride_id: str, note_id: str, ask_ids: list[str], offline_id: str) -> bool:
+    items, pages = read_records(api, key)
+    mine = [i for i in items if i.get("rideId") == ride_id and i["kind"] != "deleted"]
+    kinds = sorted(i["kind"] for i in mine)
+    offline = next((i for i in mine if i.get("askId") == offline_id), {})
+    ok = (kinds == sorted(["ride", "route", "note"] + ["ask"] * (len(ask_ids) + 1))
+          and {i["askId"] for i in mine if i["kind"] == "ask"} == {*ask_ids, offline_id}
+          and any(i["kind"] == "note" and i["noteId"] == note_id for i in mine)
+          and offline.get("status") == "offline" and offline.get("memo") == "何を聞きたかったか")
+    return check("records read back", ok, f"pages={pages} kinds={kinds}")
+
+
+def records_after_delete_check(api: str, key: str, ride_id: str, note_id: str, ask_ids: list[str], offline_id: str) -> bool:
+    items, pages = read_records(api, key)
+    left = [i for i in items if i.get("rideId") == ride_id and i["kind"] != "deleted"]
+    marks = {(i["target"], i["id"]) for i in items if i["kind"] == "deleted"}
+    wanted = {("ride", ride_id), ("note", note_id), ("ask", offline_id), *(("ask", a) for a in ask_ids)}
+    return check("records after delete are marks only", pages > 0 and left == [] and wanted <= marks,
+                 f"pages={pages} left={len(left)} missing={sorted(wanted - marks)}")
+
+
 def delete_checks(api: str, key: str, ride_id: str, note_id: str, ask_id: str) -> list[bool]:
     status, _ = request("DELETE", f"{api}/rides/{ride_id}", key, USER)
     results = [check("ride deleted", status == 204, str(status))]
@@ -148,6 +201,12 @@ def delete_checks(api: str, key: str, ride_id: str, note_id: str, ask_id: str) -
     note = {"at": minutes_ago(15), "location": TOKYO_STATION, "text": "late", "updatedAt": later}
     status, _ = request("PUT", f"{api}/rides/{ride_id}/notes/{note_id}", key, USER, note)
     results.append(check("deleted note does not come back", status == 410, str(status)))
+    point = {"t": minutes_ago(30), "lat": TOKYO_STATION["latitude"], "lon": TOKYO_STATION["longitude"], "accuracy": 5.0, "segment": 0}
+    status, _ = request("PUT", f"{api}/rides/{ride_id}/route/0", key, USER, {"points": [point]})
+    results.append(check("deleted route does not come back", status == 410, str(status)))
+    status, _ = request("PUT", f"{api}/asks/{uuid.uuid4()}/offline", key, USER,
+                        {"askedAt": minutes_ago(12), "location": TOKYO_STATION, "rideId": ride_id, "updatedAt": later})
+    results.append(check("unreached ask of a deleted ride is 410", status == 410, str(status)))
     status, _ = request("PUT", f"{api}/asks/{ask_id}/memo", key, USER, {"memo": "late", "updatedAt": later})
     results.append(check("memo of a deleted ask is 410", status == 410, str(status)))
     status, _ = request("GET", f"{api}/asks/{ask_id}", key, USER)
@@ -207,7 +266,7 @@ def main() -> int:
     print("      timings:", json.dumps(result2.get("timings"), ensure_ascii=False))
     results.append(check("same conversation", accepted2.get("conversationId") == conversation_id))
 
-    _, result3, elapsed3 = ask_and_wait(api, key, {"text": "最初に聞いた山の名前をもう一度言って", "location": TOKYO_STATION,
+    accepted3, result3, elapsed3 = ask_and_wait(api, key, {"text": "最初に聞いた山の名前をもう一度言って", "location": TOKYO_STATION,
                                                    "conversationId": conversation_id, "rideId": ride_id})
     results.append(check("follow-up answered", result3.get("status") == "completed", f"{elapsed3:.1f}s answer={result3.get('answer')}"))
 
@@ -218,7 +277,14 @@ def main() -> int:
 
     results.extend(memo_checks(api, key, accepted.get("askId")))
     results.append(transcription_check(api, key, audio_b64))
+    offline_id = str(uuid.uuid4())
+    results.extend(offline_checks(api, key, ride_id, offline_id, accepted.get("askId")))
+    ask_ids = [a for a in (accepted.get("askId"), accepted2.get("askId"), accepted3.get("askId")) if a]
+    results.append(records_check(api, key, ride_id, note_id, ask_ids, offline_id))
+    status, _ = request("GET", f"{api}/records?cursor=nope", key, USER)
+    results.append(check("bad records cursor is 400", status == 400, str(status)))
     results.extend(delete_checks(api, key, ride_id, note_id, accepted.get("askId")))
+    results.append(records_after_delete_check(api, key, ride_id, note_id, ask_ids, offline_id))
 
     print(f"{sum(results)}/{len(results)} passed")
     return 0 if all(results) else 1
