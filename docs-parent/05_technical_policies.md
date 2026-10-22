@@ -129,7 +129,7 @@ AI モデルは新しいものが次々に出るので、管理者が手間な�
 |---|---|
 | 背面での動作 | 決定済み。回答の待ち受け・読み上げは [adr/0004](../adr/0004-background-processing.md)（ネイティブ版では一巡をコルーチンで動かし、前面サービスでプロセスを生かす。[adr/0005](../adr/0005-native-android-app.md)）。走行中のルートの記録は [adr/0006](../adr/0006-background-ride-recording.md)。何時間も走ったときの点の抜けと電池の減りは、スライス2の走行で測る |
 | 会話の文脈の保持 | 決定済み（[adr/0003](../adr/0003-conversation-context.md)） |
-| 同期のしかた | 端末とクラウドの記録の突き合わせ方（どちらの変更を優先するか）。削除の伝え方は決定済み（クラウドにも削除の跡を残す。[adr/0009](../adr/0009-keep-deletion-marks-in-the-cloud.md)） |
+| 同期のしかた | 決定済み。削除はクラウドにも跡を残す（[adr/0009](../adr/0009-keep-deletion-marks-in-the-cloud.md)）。クラウドの記録は引き継ぎのとき（ユーザー名を変えるとき）と手動で読み直すときだけ読み、`updatedAt` が新しいほうを勝たせ、削除の跡があれば端末から消す（[adr/0010](../adr/0010-read-the-cloud-only-when-taking-over.md)） |
 | モデルの設定値の置き場所 | 決定済み（[07_units_contracts.md](07_units_contracts.md) UC-2） |
 
 ## 10. やらないこと
