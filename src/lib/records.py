@@ -42,14 +42,24 @@ def view(item: dict) -> Optional[dict]:
     if not sort_key.startswith("RIDE#"):
         return None
     if "#ROUTE#" in sort_key:
-        return {"kind": "route", "rideId": item["rideId"], "seq": item["seq"], "points": item["points"]}
+        return {"kind": "route", "rideId": item["rideId"], "seq": item["seq"], "points": [_point(p) for p in item["points"]]}
     if "#NOTE#" in sort_key:
         return {"kind": "note", "rideId": item["rideId"], "noteId": item["noteId"], "at": item["at"],
                 "location": item.get("location"), "text": item["text"], "updatedAt": item["updatedAt"],
                 "address": item.get("address"), "headingDegrees": item.get("headingDegrees")}
     return {"kind": "ride", "rideId": item["rideId"], "name": item["name"], "status": item["status"],
-            "segments": item["segments"], "autoEnded": item["autoEnded"], "updatedAt": item["updatedAt"],
+            "segments": [_segment(s) for s in item["segments"]], "autoEnded": item["autoEnded"], "updatedAt": item["updatedAt"],
             "memo": item.get("memo")}
+
+
+# Stored values lose their None fields, nested ones too; the app reads every field, so they come back as null.
+def _segment(stored: dict) -> dict:
+    return {"startedAt": stored["startedAt"], "endedAt": stored.get("endedAt")}
+
+
+def _point(stored: dict) -> dict:
+    return {"t": stored["t"], "lat": stored["lat"], "lon": stored["lon"], "accuracy": stored.get("accuracy"),
+            "segment": stored["segment"]}
 
 
 def _ask(item: dict) -> dict:

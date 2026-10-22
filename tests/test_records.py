@@ -159,3 +159,18 @@ def test_records_are_read_consistently(aws, monkeypatch):
     everything()
     read_all()
     assert queries and all(q.get("ConsistentRead") is True for q in queries)
+
+
+def test_an_open_segment_and_a_point_without_accuracy_read_back_with_nulls(aws):
+    # Written through the real PUTs, which drop None inside nested values; the app reads every field (openapi).
+    from handlers import rides
+    headers = {"x-user-name": USER}
+    ride = {"name": "記録中", "status": "recording", "segments": [{"startedAt": T0, "endedAt": None}], "autoEnded": False,
+            "updatedAt": T1}
+    rides.handler({"httpMethod": "PUT", "headers": headers, "pathParameters": {"rideId": RIDE}, "body": json.dumps(ride)}, None)
+    point = {"t": T0, "lat": 35.0, "lon": 139.0, "accuracy": None, "segment": 0}
+    rides.handler({"httpMethod": "PUT", "headers": headers, "pathParameters": {"rideId": RIDE, "seq": "0"},
+                   "body": json.dumps({"points": [point]})}, None)
+    ride_item, route_item = read_all()
+    assert ride_item["segments"] == [{"startedAt": T0, "endedAt": None}]
+    assert route_item["points"] == [point]
