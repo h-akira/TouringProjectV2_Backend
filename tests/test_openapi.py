@@ -4,7 +4,7 @@ from pathlib import Path
 import yaml
 from openapi_spec_validator import validate
 
-SPEC = yaml.safe_load((Path(__file__).parent.parent / "openapi.yaml").read_text(encoding="utf-8"))
+SPEC = yaml.safe_load((Path(__file__).parent.parent / "docs-parent" / "07a_openapi.yaml").read_text(encoding="utf-8"))
 
 
 def test_is_valid_openapi():
