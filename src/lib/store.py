@@ -202,6 +202,24 @@ def put_ask_memo(user: str, ask_id: str, memo: Optional[str], updated_at: str) -
     return _write_unless_deleted(update, [deleted_key(user, "ask", ask_id)])
 
 
+def put_offline_ask(user: str, ask_id: str, fields: dict) -> bool:
+    """Sets an unreached ask's fields unless a newer version is stored, keeping its memo (written on its own path).
+    False when it was not newer, or when the id belongs to an ask the Backend took in. Raises Deleted when the ask or
+    its ride has been deleted (slice 4 spec §4.4)."""
+    values = _to_item({"askId": ask_id, "status": "offline", **fields})
+    names = {f"#k{i}": key for i, key in enumerate(values)}
+    update = {"Update": {
+        "TableName": clients.table().name,
+        "Key": ask_key(user, ask_id),
+        "UpdateExpression": "SET " + ", ".join(f"#k{i} = :v{i}" for i in range(len(values))),
+        "ConditionExpression": "attribute_not_exists(pk) OR (#s = :offline AND #u < :u)",
+        "ExpressionAttributeNames": {**names, "#s": "status", "#u": "updatedAt"},
+        "ExpressionAttributeValues": {**{f":v{i}": value for i, value in enumerate(values.values())},
+                                      ":offline": "offline", ":u": fields["updatedAt"]},
+    }}
+    return _write_unless_deleted(update, [deleted_key(user, "ask", ask_id), deleted_key(user, "ride", fields["rideId"])])
+
+
 def get_ask(user: str, ask_id: str, consistent: bool = False) -> Optional[dict]:
     item = clients.table().get_item(Key=ask_key(user, ask_id), ConsistentRead=consistent).get("Item")
     return _from_item(item) if item else None
