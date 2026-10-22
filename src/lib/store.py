@@ -3,6 +3,8 @@ RIDE#<id>#NOTE#<id>, DELETED#<KIND>#<id> or TRANSCRIPTION#<id>."""
 from __future__ import annotations
 
 import json
+import time
+from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Optional
@@ -15,6 +17,14 @@ _CONDITION_FAILED = "ConditionalCheckFailedException"
 # A conversation lasts 55 minutes at most (07 UC-5); its record only has to outlive that (Backend #2).
 CONVERSATION_TTL_SECONDS = 24 * 60 * 60
 _CANCELLED = "TransactionCanceledException"
+_CONFLICT = "TransactionConflictException"
+# A write that meets a transaction on the same item fails at once; botocore does not retry it (Backend #18).
+_CONFLICT_TRIES = 3
+_sleep: Callable[[float], None] = time.sleep
+
+
+class _Conflict(Exception):
+    """A transaction on the same item was in progress; trying again a moment later will do."""
 
 
 class Deleted(Exception):
@@ -49,31 +59,53 @@ def deleted_key(user: str, kind: str, record_id: str) -> dict:
     return {"pk": f"USER#{user}", "sk": f"DELETED#{kind.upper()}#{record_id}"}
 
 
+def _retrying_conflicts(write: Callable[[], Any]) -> Any:
+    """Runs write, trying again twice (after 50 and 100 ms) while a transaction on the same item is in progress."""
+    for attempt in range(_CONFLICT_TRIES):
+        try:
+            return write()
+        except _Conflict:
+            if attempt == _CONFLICT_TRIES - 1:
+                raise
+        except ClientError as error:
+            if error.response["Error"]["Code"] != _CONFLICT or attempt == _CONFLICT_TRIES - 1:
+                raise
+        _sleep(0.05 * 2 ** attempt)
+
+
 def mark_deleted(user: str, kind: str, record_id: str, deleted_at: str, ride_id: Optional[str] = None) -> None:
     """Writes the deletion mark; marking again keeps one. Marks never expire (adr/0009)."""
-    clients.table().put_item(Item=_to_item({**deleted_key(user, kind, record_id), "kind": kind, "id": record_id,
-                                            "rideId": ride_id, "deletedAt": deleted_at}))
+    item = _to_item({**deleted_key(user, kind, record_id), "kind": kind, "id": record_id, "rideId": ride_id,
+                     "deletedAt": deleted_at})
+    _retrying_conflicts(lambda: clients.table().put_item(Item=item))
 
 
 def _write_unless_deleted(write: dict, marks: list) -> bool:
     """Runs one transaction write (a Put or an Update) unless one of the deletion marks exists, atomically, so that a
     deletion that lands at the same time cannot be undone. True when written; False when the write's own condition
-    failed. Raises Deleted when a mark exists. The table's client takes plain values, as the table does."""
+    failed. Raises Deleted when a mark exists. The table's client takes plain values, as the table does. A deletion
+    marking the same record at that moment cancels the transaction; it is tried again, and then sees the mark."""
     table = clients.table()
     checks = [{"ConditionCheck": {"TableName": table.name, "Key": mark, "ConditionExpression": "attribute_not_exists(pk)"}}
               for mark in marks]
-    try:
-        table.meta.client.transact_write_items(TransactItems=[write, *checks])
-    except ClientError as error:
-        if error.response["Error"]["Code"] != _CANCELLED:
+
+    def attempt() -> bool:
+        try:
+            table.meta.client.transact_write_items(TransactItems=[write, *checks])
+        except ClientError as error:
+            if error.response["Error"]["Code"] != _CANCELLED:
+                raise
+            codes = [reason.get("Code") for reason in error.response.get("CancellationReasons") or []]
+            if "ConditionalCheckFailed" in codes[1:]:
+                raise Deleted() from None
+            if codes[:1] == ["ConditionalCheckFailed"]:
+                return False
+            if "TransactionConflict" in codes:
+                raise _Conflict() from None
             raise
-        codes = [reason.get("Code") for reason in error.response.get("CancellationReasons") or []]
-        if "ConditionalCheckFailed" in codes[1:]:
-            raise Deleted() from None
-        if codes[:1] == ["ConditionalCheckFailed"]:
-            return False
-        raise
-    return True
+        return True
+
+    return _retrying_conflicts(attempt)
 
 
 def ask_key(user: str, ask_id: str) -> dict:
@@ -163,8 +195,8 @@ def put_ask_memo(user: str, ask_id: str, memo: Optional[str], updated_at: str) -
     return _write_unless_deleted(update, [deleted_key(user, "ask", ask_id)])
 
 
-def get_ask(user: str, ask_id: str) -> Optional[dict]:
-    item = clients.table().get_item(Key=ask_key(user, ask_id)).get("Item")
+def get_ask(user: str, ask_id: str, consistent: bool = False) -> Optional[dict]:
+    item = clients.table().get_item(Key=ask_key(user, ask_id), ConsistentRead=consistent).get("Item")
     return _from_item(item) if item else None
 
 
@@ -238,7 +270,8 @@ def _delete_all(keys: list) -> None:
 
 def delete_ask(user: str, ask_id: str, deleted_at: str) -> None:
     """Marks the ask deleted, then removes it. Deleting a missing ask still leaves the mark (adr/0009)."""
-    stored = get_ask(user, ask_id)
+    # The ask may have been written a moment ago; its mark must still name its ride (Backend #18).
+    stored = get_ask(user, ask_id, consistent=True)
     mark_deleted(user, "ask", ask_id, deleted_at, ride_id=(stored or {}).get("rideId"))
     clients.table().delete_item(Key=ask_key(user, ask_id))
 
