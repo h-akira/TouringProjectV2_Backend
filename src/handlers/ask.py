@@ -11,6 +11,13 @@ from lib import clients, conversation, store
 from lib.request import BadRequest, parse_ask, user_name
 
 
+def _discard_audio(key: str) -> None:
+    try:
+        clients.s3().delete_object(Bucket=os.environ["AUDIO_BUCKET"], Key=key)
+    except Exception as error:  # noqa: BLE001 - the 1-day lifecycle rule removes it anyway
+        log({"event": "audio_delete_failed", "error": type(error).__name__})
+
+
 def handler(event, context):
     try:
         user = user_name(event)
@@ -46,7 +53,15 @@ def handler(event, context):
             Bucket=os.environ["AUDIO_BUCKET"], Key=item["audioKey"], Body=ask.audio, ContentType="application/octet-stream"
         )
     store.create_ask(item)
-    clients.sqs().send_message(QueueUrl=os.environ["QUEUE_URL"], MessageBody=json.dumps({"userName": user, "askId": ask_id}))
+    try:
+        clients.sqs().send_message(QueueUrl=os.environ["QUEUE_URL"], MessageBody=json.dumps({"userName": user, "askId": ask_id}))
+    except Exception as error:  # noqa: BLE001 - reported to the app as 503, which it retries
+        # No worker would ever take the ask, so it is not left pending; the app keeps an unreached ask instead (Backend #3).
+        log({"event": "ask_queue_failed", "askId": ask_id, "error": type(error).__name__})
+        store.discard_ask(user, ask_id)
+        if ask.audio is not None:
+            _discard_audio(item["audioKey"])
+        return response(503, {"error": "unavailable"})
     log({"event": "ask_accepted", "askId": ask_id, "inputType": item["inputType"],
          "audioBytes": len(ask.audio) if ask.audio is not None else 0})
     return response(202, {"askId": ask_id, "conversationId": conversation_id, "conversationExpiresAt": iso(expires_at)})
