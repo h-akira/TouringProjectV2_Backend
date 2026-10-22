@@ -59,6 +59,13 @@ def deleted_key(user: str, kind: str, record_id: str) -> dict:
     return {"pk": f"USER#{user}", "sk": f"DELETED#{kind.upper()}#{record_id}"}
 
 
+def has_deletion_mark(user: str, marks: list) -> bool:
+    """Whether any of the (kind, id) marks exists, read consistently. Used before costly work on a write that would be
+    refused anyway; the write itself still checks the marks in its transaction."""
+    table = clients.table()
+    return any(table.get_item(Key=deleted_key(user, kind, record_id), ConsistentRead=True).get("Item") for kind, record_id in marks)
+
+
 def _retrying_conflicts(write: Callable[[], Any]) -> Any:
     """Runs write, trying again twice (after 50 and 100 ms) while a transaction on the same item is in progress."""
     for attempt in range(_CONFLICT_TRIES):

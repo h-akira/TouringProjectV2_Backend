@@ -78,3 +78,10 @@ def test_a_memo_of_2000_emoji_is_kept(aws):
     # Android counts an emoji as two characters, so it never sends more than the Backend takes.
     put_ask()
     assert put_memo("😀" * 2000)["statusCode"] == 200
+
+
+def test_a_memo_of_2000_characters_and_a_trailing_newline_is_kept(aws):
+    # The length is counted after the surrounding blanks are dropped (Backend #16).
+    put_ask()
+    assert put_memo("あ" * 2000 + "\n")["statusCode"] == 200
+    assert store.get_ask(USER, ASK)["memo"] == "あ" * 2000
