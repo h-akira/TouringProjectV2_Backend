@@ -983,23 +983,19 @@ const RIDES = [
     ] }
 ];
 
-// Every question, in time order. `ride` is set only when a ride was recording (not paused); the day view ignores it.
-// `at` = [segment, point] on that ride; `p` = explicit position for questions outside a ride.
+// Every question, in time order. Questions are taken only while a ride records, so each belongs to a ride.
+// `at` = [segment, point] on that ride.
 const QUESTIONS = [
   { id: "q01", day: "2026-10-04", t: "13:38", ride: "t3", at: [0, 2], addr: "千葉県富津市富津", dir: "南", right: "西", left: "東", ctx: 1,
     q: "右に見える細長い陸地は何？", a: "富津岬です。東京湾に突き出た砂州で、先端の展望台からは天気が良ければ富士山と三浦半島が見えます。" },
   { id: "q02", day: "2026-10-04", t: "14:20", ride: "t3", at: [0, 4], addr: "千葉県富津市金谷", dir: "南", right: "西", left: "東", ctx: 2,
     q: "左のゴツゴツした岩山は何？", a: "鋸山です。石を切り出した跡がのこぎりの歯のように見えることから名付けられました。山頂近くに地獄のぞきがあります。" },
-  { id: "q03", day: "2026-10-04", t: "14:58", ride: null, paused: "t3", p: [35.2000,139.7700], addr: "東京湾", dir: null, ctx: 3,
-    q: "右に見える大きな船は何？", a: "東京湾を行き来する大型のコンテナ船と思われます。このあたりは浦賀水道で、船の往来がとても多い海域です。" },
-  { id: "q04", day: "2026-10-04", t: "16:05", ride: "t3", at: [1, 2], addr: "神奈川県三浦市初声町", dir: "南西", right: "北西", left: "南東", ctx: 4,
+  { id: "q04", day: "2026-10-04", t: "16:05", ride: "t3", at: [1, 2], addr: "神奈川県三浦市初声町", dir: "南西", right: "北西", left: "南東", ctx: 3,
     q: "三崎って何が有名？", a: "三崎はマグロの水揚げで知られる港町です。港の周りにマグロ料理の店が多く、三崎口から先は城ヶ島にも渡れます。" },
   { id: "q05", day: "2026-10-11", t: "12:11", ride: "t2", at: [0, 1], addr: "静岡県熱海市上多賀", dir: "南", right: "西", left: "東", ctx: 1,
     q: "左手に見える島は何？", a: "左手の海に見えているのは初島です。熱海の沖合にある小さな島で、熱海港から船で30分ほどで渡れます。" },
   { id: "q06", day: "2026-10-11", t: "13:05", ride: "t2", at: [0, 4], addr: "静岡県伊東市湯川", dir: "南", right: "西", left: "東", ctx: 2,
     q: "伊東って何が有名？", a: "伊東は温泉の湧出量が多い温泉地として知られています。海沿いの干物や、近くの大室山、城ヶ崎海岸も有名です。" },
-  { id: "q07", day: "2026-10-11", t: "19:30", ride: null, paused: "t2", p: [34.9665,139.1010], addr: "静岡県伊東市湯川", dir: null, ctx: 3,
-    q: "明日の伊豆の天気は？", a: "明日の東伊豆は晴れの予報です。朝は少し冷えますが、日中は20度近くまで上がり、走りやすい一日になりそうです。" },
   { id: "q08", day: "2026-10-12", t: "09:52", ride: "t2", at: [1, 2], addr: "静岡県伊東市富戸", dir: "南", right: "西", left: "東", ctx: 1, newCtx: true,
     q: "城ヶ崎海岸ってこの近く？", a: "はい、左手側の海沿いすぐのところです。溶岩が海に流れ込んでできた断崖で、門脇つり橋が見どころです。" },
   { id: "q08b", day: "2026-10-12", t: "10:15", ride: "t2", at: [1, 3], addr: "静岡県東伊豆町奈良本", dir: "南西", right: "北西", left: "南東", ctx: null, offline: true, memo: "斜面の段々畑が何なのか気になった。あとで調べる。",
@@ -1008,19 +1004,13 @@ const QUESTIONS = [
     q: "この辺でお昼を食べるならどこ？", a: "稲取は金目鯛が名物です。港の近くに煮付けを出す食堂が何軒かあり、この先1キロほどで港に着きます。" },
   { id: "q10", day: "2026-10-12", t: "11:22", ride: "t2", at: [1, 6], addr: "静岡県河津町浜", dir: "西", right: "北", left: "南", ctx: 3,
     q: "河津桜って今の時期も見られる？", a: "河津桜の見頃は2月上旬から3月上旬なので、今の時期は咲いていません。川沿いの桜並木は葉桜の散策路になっています。" },
-  { id: "q11", day: "2026-10-15", t: "19:02", ride: null, p: [35.2560,139.1540], addr: "神奈川県小田原市栄町", dir: null, ctx: 1,
-    q: "テストです。聞こえてますか", a: "はい、聞こえています。音声も通信も問題なさそうです。いつでも質問してください。" },
-  { id: "q12", day: "2026-10-15", t: "19:05", ride: null, via: "text", p: [35.2561,139.1542], addr: "神奈川県小田原市栄町", dir: null, ctx: 2,
-    q: "明日の箱根の天気は？", a: "明日の箱根は晴れのち曇りの予報です。最高気温は18度ほどで、朝晩は冷え込むので一枚羽織るものがあると安心です。" },
-  { id: "q13", day: "2026-10-16", t: "09:12", ride: "t1", at: [0, 3], addr: "神奈川県箱根町湯本", dir: "西", right: "北", left: "南", ctx: 3,
+  { id: "q13", day: "2026-10-16", t: "09:12", ride: "t1", at: [0, 3], addr: "神奈川県箱根町湯本", dir: "西", right: "北", left: "南", ctx: 1,
     q: "この辺りって温泉街なの？けっこう旅館が並んでるけど", a: "箱根湯本は箱根の玄関口にあたる温泉街です。早川と須雲川の合流点に旅館や土産物店が集まっていて、日帰りで立ち寄れる湯も多くあります。" },
-  { id: "q14", day: "2026-10-16", t: "09:25", ride: "t1", at: [0, 6], addr: "神奈川県箱根町宮ノ下", dir: "西", right: "北", left: "南", ctx: 4,
+  { id: "q14", day: "2026-10-16", t: "09:25", ride: "t1", at: [0, 6], addr: "神奈川県箱根町宮ノ下", dir: "西", right: "北", left: "南", ctx: 2,
     q: "右手の古い洋館みたいな建物は何？", a: "右手に見えているのは富士屋ホテルです。明治時代に創業した老舗のリゾートホテルで、和洋折衷の本館は登録有形文化財になっています。" },
-  { id: "q15", day: "2026-10-16", t: "09:41", ride: "t1", at: [0, 9], addr: "神奈川県箱根町仙石原", dir: "北西", right: "北東", left: "南西", ctx: 5, memo: "見頃。帰りに寄りたい。",
+  { id: "q15", day: "2026-10-16", t: "09:41", ride: "t1", at: [0, 9], addr: "神奈川県箱根町仙石原", dir: "北西", right: "北東", left: "南西", ctx: 3, memo: "見頃。帰りに寄りたい。",
     q: "このススキの原っぱは何て場所？", a: "仙石原すすき草原です。台ヶ岳のふもとに広がる草原で、秋には一面が黄金色になります。毎年春の山焼きで今の景観を保っています。" },
-  { id: "q16", day: "2026-10-16", t: "09:52", ride: null, paused: "t1", p: [35.2492,139.0168], addr: "神奈川県箱根町仙石原", dir: null, ctx: 6,
-    q: "この近くで休憩できるカフェある？", a: "仙石原の交差点から歩いて3分ほどのところに、すすき草原を眺められるカフェがあります。駐車場は店の裏手です。" },
-  { id: "q17", day: "2026-10-16", t: "10:08", ride: "t1", at: [1, 2], addr: "静岡県御殿場市深沢", dir: "北西", right: "北東", left: "南西", ctx: 7,
+  { id: "q17", day: "2026-10-16", t: "10:08", ride: "t1", at: [1, 2], addr: "静岡県御殿場市深沢", dir: "北西", right: "北東", left: "南西", ctx: 4,
     q: "この先で富士山は見える？", a: "この先の乙女峠を越えると、正面やや左手に富士山が見えてきます。今日は晴れているので、峠の展望所からはっきり見えるはずです。" },
   { id: "q18", day: "2026-10-16", t: "10:20", ride: "t1", at: [1, 5], addr: "静岡県御殿場市新橋", dir: "西", right: "北", left: "南", ctx: 1, newCtx: true,
     q: "近くでガソリン入れられるところある？", a: "右手側、約1.2キロ先の国道138号沿いにガソリンスタンドがあります。そのまま進めば右側に見えてきます。" }
@@ -1029,20 +1019,16 @@ const QUESTIONS = [
 // Point memos: a note tied to a time and place, written by text or by voice (voice is only transcribed, never sent to the AI).
 const POINT_MEMOS = [
   { id: "m1", day: "2026-10-16", t: "09:33", ride: "t1", at: [0, 7], addr: "神奈川県箱根町小涌谷", via: "voice", text: "この先のカーブ、路面が荒れていて要注意。" },
-  { id: "m2", day: "2026-10-16", t: "09:48", ride: null, p: [35.2496,139.0172], addr: "神奈川県箱根町仙石原", via: "text", text: "すすき草原の駐車場は裏手。バイクは無料で停められた。" },
   { id: "m3", day: "2026-10-12", t: "10:44", ride: "t2", at: [1, 4], addr: "静岡県東伊豆町稲取", via: "text", text: "港の食堂、11時半には行列。早めに来るべし。" }
 ];
 
 const rideById = id => RIDES.find(r => r.id === id);
 const memoById = id => POINT_MEMOS.find(m => m.id === id);
 const rideMemos = id => POINT_MEMOS.filter(m => m.ride === id);
-const dayMemos = day => POINT_MEMOS.filter(m => m.day === day);
 const qById = id => QUESTIONS.find(q => q.id === id);
-const pos = q => q.p || rideById(q.ride).segments[q.at[0]].pts[q.at[1]];
+const pos = q => rideById(q.ride).segments[q.at[0]].pts[q.at[1]];
 const rideQs = id => QUESTIONS.filter(q => q.ride === id);
-const dayQs = day => QUESTIONS.filter(q => q.day === day);
 const rideDays = r => [...new Set(r.segments.map(s => s.day))];
-const allDays = () => [...new Set([...QUESTIONS.map(q => q.day), ...POINT_MEMOS.map(m => m.day)])].sort().reverse();
 const WD = "日月火水木金土";
 function fmtDay(d, withWd = true) {
   const [y, m, dd] = d.split("-").map(Number);
@@ -1065,7 +1051,7 @@ const answerText = q => q.offline ? "質問の内容は残していません" : 
 
 // Only the 10 newest recordings are kept, for the recording check screen (SC-12).
 const AUDIO = QUESTIONS.filter(q => !q.offline && q.via !== "text").sort((x, y) => (y.day + y.t).localeCompare(x.day + x.t)).slice(0, 10);
-QUESTIONS.forEach(q => { q.len = 4 + (((q.q || "").length * 7) % 9); q.mic = q.id === "q11" ? "本体のマイク" : "インカム"; });
+QUESTIONS.forEach(q => { q.len = 4 + (((q.q || "").length * 7) % 9); q.mic = q.id === "q06" ? "本体のマイク" : "インカム"; });
 
 const APPS = [
   { name: "Google マップ", pkg: "com.google.android.apps.maps", color: "#1a73e8" },
@@ -1473,7 +1459,7 @@ let current = "SC-02";
 let states = { "SC-05": "rides" };
 let showPins = true;
 let showMemos = true;
-let params = { trip: "t1", day: "2026-10-16", conv: "q15", from: "ride", memo: "conv", dl: "conv" };
+let params = { trip: "t1", conv: "q15", memo: "conv", dl: "conv" };
 const OVERLAYS = ["SC-04", "SC-17", "DL-01", "DL-02", "DL-03"];
 
 function show(id) {
@@ -1512,9 +1498,8 @@ function setState(id, st) {
   if (id === "SC-06") params.trip = st;
   if (id === "SC-19") { if (st === "edit") params.memoId = params.memoId || "m1"; if (st === "new" || st === "offline") params.memoId = null; }
   if (id === "SC-07") {
-    const pick = { ride: ["q15", "ride"], day: ["q16", "day"], offline: ["q08b", "ride"] }[st];
-    params.conv = pick[0]; params.from = pick[1];
-    const q = qById(params.conv); if (q.ride) params.trip = q.ride; params.day = q.day;
+    params.conv = { ride: "q15", offline: "q08b" }[st];
+    params.trip = qById(params.conv).ride;
   }
   applyState(id); render(id); renderStateBar(id);
 }
@@ -1794,20 +1779,19 @@ function renderPointMemo() {
   };
 }
 
-function convList() { const q = qById(params.conv); return params.from === "day" ? dayQs(q.day) : rideQs(q.ride); }
+function convList() { return rideQs(qById(params.conv).ride); }
 function renderConv() {
   const q = qById(params.conv);
-  if (params.from === "ride" && !q.ride) params.from = "day";
   const list = convList(); const i = list.indexOf(q);
-  states["SC-07"] = q.offline ? "offline" : (params.from === "day" ? "day" : "ride");
+  states["SC-07"] = q.offline ? "offline" : "ride";
   renderStateBar("SC-07");
-  $("#convTitle").textContent = params.from === "day" ? `${fmtDay(q.day, false)} ${i + 1} / ${list.length}` : `会話 ${i + 1} / ${list.length}`;
+  $("#convTitle").textContent = `会話 ${i + 1} / ${list.length}`;
   const prev = $("#convPrev"), next = $("#convNext");
   prev.disabled = i === 0; next.disabled = i === list.length - 1;
   prev.style.opacity = i === 0 ? .3 : 1; next.style.opacity = i === list.length - 1 ? .3 : 1;
   prev.onclick = () => { if (i > 0) { params.conv = list[i - 1].id; renderConv(); } };
   next.onclick = () => { if (i < list.length - 1) { params.conv = list[i + 1].id; renderConv(); } };
-  const ride = params.from === "ride" ? rideById(q.ride) : null;
+  const ride = rideById(q.ride);
   const memo = q.memo
     ? `<div class="memo-box"><div class="row between"><span class="h">メモ</span><button class="btn tonal sm" data-act="convMemo" style="min-height:32px">編集</button></div>${esc(q.memo)}</div>`
     : `<button class="btn tonal block" data-act="convMemo">＋ メモを追加</button>`;
@@ -1914,7 +1898,7 @@ function renderRec() {
 
 // ===== Global events =====
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-go-memo],[data-fullmap],[data-jump],[data-go],[data-go-trip],[data-go-day],[data-go-conv],[data-list-mode],[data-tab],[data-act],[data-overlay],[data-close],[data-state-set],[data-theme-set],[data-step],.seg-in button,[data-group=src] .radio-item");
+  const t = e.target.closest("[data-go-memo],[data-fullmap],[data-jump],[data-go],[data-go-trip],[data-go-conv],[data-tab],[data-act],[data-overlay],[data-close],[data-state-set],[data-theme-set],[data-step],.seg-in button,[data-group=src] .radio-item");
   if (!t) return;
   if (t.dataset.themeSet) {
     const v = t.dataset.themeSet;
@@ -1925,13 +1909,12 @@ document.addEventListener("click", e => {
   if (t.dataset.fullmap) return toggleFullMap(t);
   if (t.dataset.jump) return jump(t.dataset.jump);
   if (t.dataset.stateSet) return setState($("#stateBar").dataset.for, t.dataset.stateSet);
-  if (t.dataset.listMode) return setState("SC-05", t.dataset.listMode);
   if (t.dataset.tab) return tab(t.dataset.tab);
   if (t.hasAttribute("data-close")) { closeOverlays(); renderAfterClose(); return; }
   if (t.dataset.overlay) return openOverlay(t.dataset.overlay, { dl: t.dataset.dl });
   if (t.dataset.goTrip) { params.trip = t.dataset.goTrip; return go("SC-06"); }
   if (t.dataset.goMemo) { params.memoId = t.dataset.goMemo; params.memoFrom = "ride"; states["SC-19"] = "edit"; return go("SC-19"); }
-  if (t.dataset.goConv) { const [qid, from] = t.dataset.goConv.split("|"); params.conv = qid; params.from = from; const q = qById(qid); if (q.ride) params.trip = q.ride; params.day = q.day; return go("SC-07"); }
+  if (t.dataset.goConv) { params.conv = t.dataset.goConv.split("|")[0]; params.trip = qById(params.conv).ride; return go("SC-07"); }
   if (t.dataset.go) { if (t.dataset.stateTo) states[t.dataset.go] = t.dataset.stateTo; closeOverlays(); return go(t.dataset.go); }
   if (t.dataset.step) { const el = $("#maxSec"); const v = Math.min(60, Math.max(10, parseInt(el.textContent, 10) + +t.dataset.step)); el.textContent = v + "秒"; return; }
   if (t.matches(".seg-in button")) { $$("button", t.parentElement).forEach(b => b.setAttribute("aria-pressed", String(b === t))); return; }
@@ -1972,7 +1955,7 @@ function jump(id) {
   const roots = { "SC-01": ["SC-01"], "SC-02": ["SC-02"], "SC-03": ["SC-02", "SC-03"], "SC-05": ["SC-05"], "SC-06": ["SC-05", "SC-06"],
 "SC-19": ["SC-02", "SC-19"], "SC-07": ["SC-05", "SC-06", "SC-07"], "SC-08": ["SC-05", "SC-06", "SC-07", "SC-08"], "SC-09": ["SC-09"] };
   if (id === "SC-01") states["SC-01"] = "perm";
-  if (id === "SC-07") { params.conv = "q15"; params.from = "ride"; params.trip = "t1"; }
+  if (id === "SC-07") { params.conv = "q15"; params.trip = "t1"; }
   if (id === "SC-08") params.memo = "conv";
   if (id === "SC-19") { params.memoId = null; states["SC-19"] = "new"; }
   stack = roots[id] || ["SC-09", id];
