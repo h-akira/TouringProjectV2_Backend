@@ -42,10 +42,11 @@ def utc_time(value: Any, field: str) -> str:
 
 
 def memo_text(value: Any) -> Optional[str]:
-    """A memo of up to MEMO_MAX characters; null or blank is no memo (US-D-04.003)."""
+    """A memo of up to MEMO_MAX characters (code points, counted after the surrounding blanks are dropped); null or
+    blank is no memo (US-D-04.003, Backend #16)."""
     if value is None:
         return None
-    if not isinstance(value, str) or len(value) > MEMO_MAX:
+    if not isinstance(value, str) or len(value.strip()) > MEMO_MAX:
         raise BadRequest(f"memo must be up to {MEMO_MAX} characters or null")
     return value.strip() or None
 

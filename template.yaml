@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: TouringProjectV2 backend - accept asks, process them through the agent, return answers, and keep rides, memos and point memos.
+Description: TouringProjectV2 backend - accept asks, process them through the agent, return answers, and keep rides, memos, point memos and unreached asks, reading them back for taking over.
 
 Parameters:
   Environment:
@@ -168,9 +168,17 @@ Resources:
     Properties:
       FunctionName: !Sub lambda-trv2-${Environment}-ask-edit
       Handler: handlers.ask_edit.handler
+      Environment:
+        Variables:
+          GEO_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref RecordsTable
+        # An unreached ask gets its place on the first PUT, like a point memo (slice 4 spec §4.4).
+        - Statement:
+            - Effect: Allow
+              Action: geo-places:ReverseGeocode
+              Resource: "*"
       Events:
         Memo:
           Type: Api
@@ -184,6 +192,30 @@ Resources:
             RestApiId: !Ref RestApi
             Path: /asks/{askId}
             Method: delete
+        Offline:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /asks/{askId}/offline
+            Method: put
+
+  RecordsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub lambda-trv2-${Environment}-records
+      Handler: handlers.records.handler
+      # A page is one query of up to 1 MB, turned into JSON.
+      MemorySize: 512
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RecordsTable
+      Events:
+        Records:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /records
+            Method: get
 
   TranscriptionsFunction:
     Type: AWS::Serverless::Function
@@ -295,7 +327,8 @@ Resources:
           KeyType: RANGE
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
-      # Only transcriptions carry expiresAt; they are needed while the app polls (slice 3 spec §6.1).
+      # Transcriptions (needed while the app polls, slice 3 spec §6.1) and conversations (55 minutes at most, Backend #2)
+      # carry expiresAt.
       TimeToLiveSpecification:
         AttributeName: expiresAt
         Enabled: true

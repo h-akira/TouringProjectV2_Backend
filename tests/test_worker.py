@@ -198,3 +198,17 @@ def test_an_ask_deleted_while_it_is_answered_is_not_written_back(aws):
     rec.invoke_agent = delete_then_answer
     worker.process(USER, ASK, rec.steps())
     assert store.get_ask(USER, ASK) is None
+
+
+def test_an_ask_deleted_before_a_crash_is_not_written_back_as_failed(aws):
+    # The catch-all in process marks a crashed ask failed; it must not bring back an ask deleted meanwhile (Backend #19).
+    put(aws, audio=False)
+    rec = Recorder()
+
+    def crash(lat, lon):
+        store.delete_ask(USER, ASK, iso(T0))
+        raise RuntimeError("unexpected")
+
+    rec.describe_location = crash
+    worker.process(USER, ASK, rec.steps())
+    assert store.get_ask(USER, ASK) is None

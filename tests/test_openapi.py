@@ -17,11 +17,13 @@ def test_routes():
         "/asks": {"post"},
         "/asks/{askId}": {"get", "delete"},
         "/asks/{askId}/memo": {"put"},
+        "/asks/{askId}/offline": {"put"},
         "/rides/{rideId}": {"put", "delete"},
         "/rides/{rideId}/route/{seq}": {"put"},
         "/rides/{rideId}/notes/{noteId}": {"put", "delete"},
         "/transcriptions": {"post"},
         "/transcriptions/{transcriptionId}": {"get"},
+        "/records": {"get"},
     }
 
 
@@ -49,3 +51,32 @@ def test_the_ride_limits_match_the_validation():
 def test_error_reasons_match_contract():
     reasons = SPEC["components"]["schemas"]["AskResult"]["properties"]["error"]["enum"]
     assert set(reasons) - {None} == {"no_speech", "transcribe_failed", "agent_failed", "tts_failed"}
+
+
+def _samples():
+    t = "2026-10-22T01:00:00.000Z"
+    return [
+        {"sk": "RIDE#r", "rideId": "r", "name": "n", "status": "ended", "segments": [], "autoEnded": False, "updatedAt": t},
+        {"sk": "RIDE#r#ROUTE#00000", "rideId": "r", "seq": 0, "points": []},
+        {"sk": "RIDE#r#NOTE#n", "rideId": "r", "noteId": "n", "at": t, "text": "x", "updatedAt": t},
+        {"sk": "ASK#a", "askId": "a", "status": "offline", "receivedAt": t, "rideId": "r", "updatedAt": t},
+        {"sk": "DELETED#RIDE#r", "kind": "ride", "id": "r", "deletedAt": t},
+    ]
+
+
+def test_the_records_schemas_name_exactly_what_the_handler_returns():
+    from lib import records
+    schemas = SPEC["components"]["schemas"]
+    by_kind = {records.view(item)["kind"]: records.view(item) for item in _samples()}
+    mapping = schemas["RecordItem"]["discriminator"]["mapping"]
+    assert set(mapping) == set(by_kind)
+    for kind, view in by_kind.items():
+        schema = schemas[mapping[kind].rsplit("/", 1)[1]]
+        assert set(schema["properties"]) == set(view) and set(schema["required"]) == set(view)
+        assert schema["properties"]["kind"]["enum"] == [kind]
+
+
+def test_the_ask_record_statuses_match_the_handler():
+    from lib import records
+    statuses = SPEC["components"]["schemas"]["AskRecord"]["properties"]["status"]["enum"]
+    assert set(statuses) == set(records._ASK_STATUS.values())

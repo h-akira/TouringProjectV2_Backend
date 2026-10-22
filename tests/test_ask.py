@@ -102,3 +102,16 @@ def test_a_location_too_large_for_a_float_is_dropped_not_a_crash(aws):
     result = call({"text": "Q", "location": {"latitude": 10 ** 400, "longitude": 139.0}})
     assert result["statusCode"] == 202
     assert "location" not in store.get_ask("rider01", json.loads(result["body"])["askId"])
+
+
+def test_an_ask_that_cannot_be_queued_is_503_and_leaves_no_ask_or_audio(aws, monkeypatch):
+    # Nothing would ever take a pending ask without its message, so it is removed (Backend #3).
+    def broken(**params):
+        raise RuntimeError("queue unavailable")
+
+    monkeypatch.setattr(ask.clients.sqs(), "send_message", broken)
+    audio = b"\x01\x00" * (MIN_AUDIO_BYTES // 2)
+    result = call({"audio": base64.b64encode(audio).decode(), "rideId": RID})
+    assert result["statusCode"] == 503 and json.loads(result["body"]) == {"error": "unavailable"}
+    assert [i["sk"] for i in aws.table.scan()["Items"] if i["sk"].startswith("ASK#")] == []
+    assert aws.s3.list_objects_v2(Bucket=aws.bucket).get("KeyCount") == 0

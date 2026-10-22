@@ -5,6 +5,8 @@ info:
   description: >
     App ↔ Backend の約束の正本（親リポジトリ docs/07_units_contracts.md UC-4〜UC-7）。
     /health 以外は x-api-key（接続キー）と x-user-name（英小文字と数字の3〜20文字）が要る。
+    5xx（API Gateway・Lambda の一時的な失敗）は送り直してよい。PUT・DELETE は何度送っても同じ結果になる。
+    文字数の上限は、前後の空白を落としたあとの Unicode のコードポイントの数で数える。
 servers:
   - url: https://{apiId}.execute-api.ap-northeast-1.amazonaws.com/Prod
     variables:
@@ -52,6 +54,17 @@ paths:
           description: 接続キーが無効
         "429":
           description: 流量の制限
+        "503":
+          description: 受け付けたが処理に回せなかった。記録は残さない。App は通信の失敗と同じに扱う
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: string
+                    enum: [unavailable]
   /asks/{askId}:
     get:
       summary: 質問の状態と回答
@@ -139,12 +152,79 @@ paths:
                     enum: [not_found]
         "410":
           $ref: "#/components/responses/Deleted"
+  /asks/{askId}/offline:
+    put:
+      summary: 質問できなかった地点を置く（Backend に届かなかった質問。最新の全体を送る）
+      description: >
+        Android が作った askId で、status が offline の質問として置く。updatedAt が保存済みのものより新しいときだけ書き、
+        古ければ何もせず 200（applied は false）で、保存済みの住所と方位を返す。会話のメモ（PUT /asks/{askId}/memo）は残す。
+        住所（町名まで）と方位は最初に受けたときに Backend が決め、あとの PUT では変えない（住所を確定できなかったときは次の PUT で求め直す）。
+        質問か走行に削除の跡があれば、書かずに 410。同じ askId で Backend が受け付けた質問があれば、書かずに 409。
+      parameters:
+        - $ref: "#/components/parameters/UserName"
+        - $ref: "#/components/parameters/AskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfflineAskRequest"
+      responses:
+        "200":
+          description: 受け取った（書いたか、古いので何もしなかったか）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfflineAskSaved"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: 接続キーが無効
+        "409":
+          description: 同じ askId で Backend が受け付けた質問がある。書かなかった
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: string
+                    enum: [conflict]
+        "410":
+          $ref: "#/components/responses/Deleted"
+  /records:
+    get:
+      summary: ユーザーの記録を、ページ送りで読む（引き継ぎのときに使う）
+      description: >
+        走行・ルートのかたまり・地点メモ・質問（質問できなかった地点を含む）・削除の跡を、記録の識別子の順に返す。
+        1ページは DynamoDB の1回の問い合わせ（最大1MB）で、items が空でも cursor があれば続きがある。
+        cursor が null なら最後のページ。強い一貫性で読む。
+      parameters:
+        - $ref: "#/components/parameters/UserName"
+        - name: cursor
+          in: query
+          required: false
+          description: 前のページの応答の cursor。最初のページでは付けない
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 1ページ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordsPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: 接続キーが無効
   /rides/{rideId}:
     put:
       summary: 走行のメタ情報を置く（状態・名前・区間・メモが変わるたびに、最新の全体を送る）
       description: >
         updatedAt が保存済みのものより新しいときだけ上書きする。古ければ何もせず 200（applied は false）。
-        削除の跡がある走行は書かずに 410。読み出しは後のスライスで足す。
+        削除の跡がある走行は書かずに 410。読み出しは GET /records。
       parameters:
         - $ref: "#/components/parameters/UserName"
         - $ref: "#/components/parameters/RideId"
@@ -364,7 +444,7 @@ components:
       name: askId
       in: path
       required: true
-      description: Backend が質問を受け付けたときに返した UUID（小文字）
+      description: Backend が質問を受け付けたときに返した UUID（小文字）。質問できなかった地点は Android が作る UUID
       schema:
         type: string
         format: uuid
@@ -553,7 +633,7 @@ components:
           type: string
           maxLength: 2000
           nullable: true
-          description: 走行のメモ。null・省略・空白だけは「メモ無し」（保存済みのメモも消える）。前後の空白は落とす
+          description: 走行のメモ。null・省略・空白だけは「メモ無し」（保存済みのメモも消える）。前後の空白は落とし、そのあとのコードポイントで2000まで
     AskMemoRequest:
       type: object
       required: [memo, updatedAt]
@@ -562,7 +642,7 @@ components:
           type: string
           maxLength: 2000
           nullable: true
-          description: 会話のメモ。null・空白だけなら消す。前後の空白は落とす
+          description: 会話のメモ。null・空白だけなら消す。前後の空白は落とし、そのあとのコードポイントで2000まで
         updatedAt:
           type: string
           format: date-time
@@ -595,7 +675,7 @@ components:
           type: string
           minLength: 1
           maxLength: 2000
-          description: 本文。空白だけは 400。前後の空白は落とす
+          description: 本文。空白だけは 400。前後の空白は落とし、そのあとのコードポイントで2000まで
         updatedAt:
           type: string
           format: date-time
@@ -674,3 +754,264 @@ components:
                 type: integer
                 minimum: 0
                 description: 点を記録した区間の番号（segments の何番目か。0から）
+    OfflineAskRequest:
+      type: object
+      required: [askedAt, rideId, updatedAt]
+      properties:
+        askedAt:
+          type: string
+          format: date-time
+          description: 録音を終えた時刻（タイムゾーン付き）
+        location:
+          allOf:
+            - $ref: "#/components/schemas/Point"
+          nullable: true
+          description: 録音を終えたときの位置。まだ位置が無ければ null。不正な位置は 400
+        headingSample:
+          nullable: true
+          description: 方位の材料（質問と同じ）。askedAt より2分以上古いものは使わない。不正なものは無いものとして扱う
+          allOf:
+            - $ref: "#/components/schemas/Point"
+            - type: object
+              required: [at]
+              properties:
+                at:
+                  type: string
+                  format: date-time
+        rideId:
+          type: string
+          format: uuid
+          description: 記録中だった走行（小文字）
+        updatedAt:
+          type: string
+          format: date-time
+          description: Android が記録を変えた時刻（タイムゾーン付き。ミリ秒まで比べる）
+    OfflineAskSaved:
+      type: object
+      required: [askId, applied, address, headingDegrees]
+      properties:
+        askId:
+          type: string
+          format: uuid
+        applied:
+          type: boolean
+        address:
+          type: string
+          nullable: true
+          description: 地点の住所（町名まで）。位置が無いか、確定できなかったら null
+        headingDegrees:
+          type: number
+          nullable: true
+          description: 進行方位（北を0とする度）。方位なしなら null
+    RecordsPage:
+      type: object
+      required: [items, cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecordItem"
+        cursor:
+          type: string
+          nullable: true
+          description: 続きを読むときに付ける。null なら最後のページ
+    RecordItem:
+      oneOf:
+        - $ref: "#/components/schemas/RideRecord"
+        - $ref: "#/components/schemas/RouteRecord"
+        - $ref: "#/components/schemas/NoteRecord"
+        - $ref: "#/components/schemas/AskRecord"
+        - $ref: "#/components/schemas/DeletedRecord"
+      discriminator:
+        propertyName: kind
+        mapping:
+          ride: "#/components/schemas/RideRecord"
+          route: "#/components/schemas/RouteRecord"
+          note: "#/components/schemas/NoteRecord"
+          ask: "#/components/schemas/AskRecord"
+          deleted: "#/components/schemas/DeletedRecord"
+    RideRecord:
+      type: object
+      description: PUT /rides/{rideId} で置いたもの
+      required: [kind, rideId, name, status, segments, autoEnded, updatedAt, memo]
+      properties:
+        kind:
+          type: string
+          enum: [ride]
+        rideId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+          enum: [recording, paused, ended]
+        segments:
+          type: array
+          items:
+            type: object
+            required: [startedAt, endedAt]
+            properties:
+              startedAt:
+                type: string
+                format: date-time
+              endedAt:
+                type: string
+                format: date-time
+                nullable: true
+        autoEnded:
+          type: boolean
+        updatedAt:
+          type: string
+          format: date-time
+        memo:
+          type: string
+          nullable: true
+    RouteRecord:
+      type: object
+      description: PUT /rides/{rideId}/route/{seq} で置いたもの
+      required: [kind, rideId, seq, points]
+      properties:
+        kind:
+          type: string
+          enum: [route]
+        rideId:
+          type: string
+          format: uuid
+        seq:
+          type: integer
+        points:
+          $ref: "#/components/schemas/RouteChunk/properties/points"
+    NoteRecord:
+      type: object
+      description: PUT /rides/{rideId}/notes/{noteId} で置いたものと、Backend が決めた住所と方位
+      required: [kind, rideId, noteId, at, location, text, updatedAt, address, headingDegrees]
+      properties:
+        kind:
+          type: string
+          enum: [note]
+        rideId:
+          type: string
+          format: uuid
+        noteId:
+          type: string
+          format: uuid
+        at:
+          type: string
+          format: date-time
+        location:
+          allOf:
+            - $ref: "#/components/schemas/Point"
+          nullable: true
+        text:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        address:
+          type: string
+          nullable: true
+        headingDegrees:
+          type: number
+          nullable: true
+    AskRecord:
+      type: object
+      description: >
+        質問。Backend が受け付けたもの（status は GET /asks/{askId} と同じ）と、質問できなかった地点（status が offline）。
+      required: [kind, askId, status, askedAt, question, transcript, answer, error, answeredAt, location, address,
+                 headingDegrees, inputType, conversationId, newConversation, rideId, memo, memoUpdatedAt, updatedAt]
+      properties:
+        kind:
+          type: string
+          enum: [ask]
+        askId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [processing, completed, failed, offline]
+        askedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 受け付けた日時。質問できなかった地点は録音を終えた時刻
+        question:
+          type: string
+          nullable: true
+          description: 文字の質問の文
+        transcript:
+          type: string
+          nullable: true
+        answer:
+          type: string
+          nullable: true
+        error:
+          type: string
+          nullable: true
+          enum: [no_speech, transcribe_failed, agent_failed, tts_failed, null]
+        answeredAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 回答ができた時刻（聞ける回答があるときだけ）
+        location:
+          allOf:
+            - $ref: "#/components/schemas/Point"
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        headingDegrees:
+          type: number
+          nullable: true
+        inputType:
+          type: string
+          nullable: true
+          enum: [audio, text, null]
+          description: 質問できなかった地点は null
+        conversationId:
+          type: string
+          format: uuid
+          nullable: true
+          description: 質問できなかった地点は null
+        newConversation:
+          type: boolean
+          description: 会話の最初の質問か（その直前で会話が区切れる）
+        rideId:
+          type: string
+          format: uuid
+          nullable: true
+        memo:
+          type: string
+          nullable: true
+        memoUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Android が変えた時刻（質問できなかった地点だけ）
+    DeletedRecord:
+      type: object
+      description: 削除の跡。target の記録は消えている（走行の跡なら、その下のルート・地点メモ・質問も）
+      required: [kind, target, id, rideId, deletedAt]
+      properties:
+        kind:
+          type: string
+          enum: [deleted]
+        target:
+          type: string
+          enum: [ask, ride, note]
+        id:
+          type: string
+          format: uuid
+        rideId:
+          type: string
+          format: uuid
+          nullable: true
+          description: 質問と地点メモの跡のとき、その走行（分かれば）
+        deletedAt:
+          type: string
+          format: date-time

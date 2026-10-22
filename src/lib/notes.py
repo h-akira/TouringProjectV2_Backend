@@ -28,7 +28,9 @@ def parse_note(event: dict) -> NoteInput:
         if location is None:
             raise BadRequest("location must be a position or null")
     text = data.get("text")
-    if not isinstance(text, str) or not text.strip() or len(text) > NOTE_TEXT_MAX:
+    # Code points, counted after the surrounding blanks are dropped (Backend #16).
+    text = text.strip() if isinstance(text, str) else None
+    if not text or len(text) > NOTE_TEXT_MAX:
         raise BadRequest(f"text must be 1-{NOTE_TEXT_MAX} characters")
-    return NoteInput(utc_time(data.get("at"), "at"), location, heading_sample(data.get("headingSample")), text.strip(),
+    return NoteInput(utc_time(data.get("at"), "at"), location, heading_sample(data.get("headingSample")), text,
                      utc_time(data.get("updatedAt"), "updatedAt"))

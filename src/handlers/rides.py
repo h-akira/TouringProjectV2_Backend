@@ -55,11 +55,17 @@ def _route(event: dict, user: str, ride_id: str) -> dict:
 def _note(event: dict, user: str, ride_id: str) -> dict:
     note_id = rides.path_id(event, "noteId")
     note = notes.parse_note(event)
+    # A send arriving after a deletion is refused before the place is looked up (Backend #17).
+    if store.has_deletion_mark(user, [("note", note_id), ("ride", ride_id)]):
+        raise store.Deleted()
     stored = store.get_note(user, ride_id, note_id)
     if stored is not None and stored["updatedAt"] >= note.updated_at:
         applied, kept = False, stored
     else:
-        heading = heading_degrees(note.location, note.heading_sample, parse_iso(note.at))
+        heading = (stored or {}).get("headingDegrees")
+        if heading is None:
+            # Settled on the first PUT that has one, like the place (slice 3 spec §6.2, Backend #17).
+            heading = heading_degrees(note.location, note.heading_sample, parse_iso(note.at))
         kept = {
             "at": note.at,
             "location": note.location,
