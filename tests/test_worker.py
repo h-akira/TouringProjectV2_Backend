@@ -1,10 +1,11 @@
 """Tests for the worker pipeline with stubbed steps and moto storage."""
+import json
 from datetime import datetime, timedelta, timezone
 
 from handlers import worker
 from handlers.common import iso
 from lib import store
-from lib.agent import AgentError, AgentReply, session_id
+from lib.agent import AgentError, AgentReply, parse_events, session_id
 
 USER, ASK, CID = "rider01", "11111111-1111-4111-8111-111111111111", "33333333-3333-4333-8333-333333333333"
 T0 = datetime(2026, 10, 16, 3, 0, tzinfo=timezone.utc)
@@ -139,11 +140,23 @@ def test_transcribe_failure_deletes_audio(aws):
 
 def test_agent_failure(aws):
     put(aws)
-    rec = Recorder(agent_error=AgentError("agent_failed: empty answer"))
+    rec = Recorder(agent_error=AgentError("agent_failed"))
     worker.process(USER, ASK, rec.steps())
     item = store.get_ask(USER, ASK)
     assert item["status"] == "failed" and item["error"] == "agent_failed" and item["transcript"] == "右手の山は？"
     assert "tts" not in kinds(rec)
+
+
+def test_the_agent_error_log_has_the_code_only(aws, capsys):
+    # The agent's message may carry part of the question; only its code is logged (Backend #8).
+    put(aws)
+    try:
+        parse_events([b'data: {"type": "error", "code": "agent_failed", "message": "\\u53f3\\u624b"}'])
+    except AgentError as error:
+        raised = error
+    worker.process(USER, ASK, Recorder(agent_error=raised).steps())
+    logged = [json.loads(line) for line in capsys.readouterr().out.splitlines() if '"agent_error"' in line]
+    assert logged and logged[0]["error"] == "agent_failed"
 
 
 def test_tts_failure_keeps_answer(aws):

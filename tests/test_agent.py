@@ -29,14 +29,26 @@ def test_parse_ignores_noise_lines():
     assert reply.answer == "晴れです。"
 
 
-def test_error_event_raises():
-    with pytest.raises(AgentError, match="agent_failed: empty answer"):
-        parse_events(sse({"type": "error", "code": "agent_failed", "message": "empty answer"}))
+def test_error_event_raises_with_its_code_only():
+    # The message may carry part of the input, so it is not kept for the log (Backend #8).
+    with pytest.raises(AgentError) as raised:
+        parse_events(sse({"type": "error", "code": "agent_failed", "message": "右手の山は？ was too long"}))
+    assert str(raised.value) == "agent_failed"
 
 
-def test_runtime_level_error_shape_raises():
-    with pytest.raises(AgentError, match="boom"):
-        parse_events(sse({"error": "boom", "error_type": "RuntimeError"}))
+def test_runtime_level_error_shape_raises_with_its_type_only():
+    with pytest.raises(AgentError) as raised:
+        parse_events(sse({"error": "boom near 東京駅", "error_type": "RuntimeError"}))
+    assert str(raised.value) == "RuntimeError"
+
+
+def test_an_error_without_a_code_or_type_says_so():
+    with pytest.raises(AgentError) as raised:
+        parse_events(sse({"type": "error", "message": "x"}))
+    assert str(raised.value) == "agent_error"
+    with pytest.raises(AgentError) as raised:
+        parse_events(sse({"error": "x"}))
+    assert str(raised.value) == "runtime_error"
 
 
 def test_missing_or_empty_done_raises():
