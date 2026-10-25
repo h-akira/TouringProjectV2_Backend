@@ -488,7 +488,7 @@ components:
           maximum: 180
     AskRequest:
       type: object
-      description: audio と text はどちらか一方。不正な location・headingSample は無いものとして扱う。
+      description: audio と text はどちらか一方。不正な location・headingDegrees・headingSample は無いものとして扱う。
       properties:
         audio:
           type: string
@@ -502,9 +502,13 @@ components:
           allOf:
             - $ref: "#/components/schemas/Point"
           nullable: true
+        headingDegrees:
+          type: number
+          nullable: true
+          description: 進行方位（真北から時計回りの度数。0以上360未満）。Android が走行のルートから求める。方位なしなら null。0以上360未満の数でなければ方位なしとして扱う。headingSample より優先する
         headingSample:
           nullable: true
-          description: 方位の材料。少し前の位置と、その時刻（タイムゾーン付き）。2分より古いものは使わない。
+          description: 古い形の方位の材料。少し前の位置と、その時刻（タイムゾーン付き）。headingDegrees が無いときだけ使い、2分より古いものは使わない。端末に残った古い未送信のために受ける。
           allOf:
             - $ref: "#/components/schemas/Point"
             - type: object
@@ -660,9 +664,13 @@ components:
             - $ref: "#/components/schemas/Point"
           nullable: true
           description: 開いたときの位置。まだ位置が無ければ null。不正な位置は 400
+        headingDegrees:
+          type: number
+          nullable: true
+          description: 進行方位（真北から時計回りの度数。0以上360未満）。Android が走行のルートから求める。方位なしなら null。0以上360未満の数でなければ方位なしとして扱う。headingSample より優先する
         headingSample:
           nullable: true
-          description: 方位の材料（質問と同じ）。at より2分以上古いものは使わない。不正なものは無いものとして扱う
+          description: 古い形の方位の材料（質問と同じ）。headingDegrees が無いときだけ使い、at より2分以上古いものは使わない。不正なものは無いものとして扱う
           allOf:
             - $ref: "#/components/schemas/Point"
             - type: object
@@ -767,9 +775,13 @@ components:
             - $ref: "#/components/schemas/Point"
           nullable: true
           description: 録音を終えたときの位置。まだ位置が無ければ null。不正な位置は 400
+        headingDegrees:
+          type: number
+          nullable: true
+          description: 進行方位（真北から時計回りの度数。0以上360未満）。Android が走行のルートから求める。方位なしなら null。0以上360未満の数でなければ方位なしとして扱う。headingSample より優先する
         headingSample:
           nullable: true
-          description: 方位の材料（質問と同じ）。askedAt より2分以上古いものは使わない。不正なものは無いものとして扱う
+          description: 古い形の方位の材料（質問と同じ）。headingDegrees が無いときだけ使い、askedAt より2分以上古いものは使わない。不正なものは無いものとして扱う
           allOf:
             - $ref: "#/components/schemas/Point"
             - type: object
