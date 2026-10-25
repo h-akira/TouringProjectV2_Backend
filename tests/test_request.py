@@ -60,6 +60,13 @@ def test_audio_length_and_alignment(audio):
         parse_ask(event({"audio": b64(audio)}))
 
 
+def test_audio_base64_with_line_breaks_is_read():
+    # Some encoders break base64 into lines of 76 characters (Backend #6).
+    text = b64(b"\x01\x02" * MIN_AUDIO_BYTES)
+    wrapped = "\n".join(text[i:i + 76] for i in range(0, len(text), 76)) + "\n"
+    assert parse_ask(event({"audio": wrapped})).audio == b"\x01\x02" * MIN_AUDIO_BYTES
+
+
 def test_audio_not_base64():
     with pytest.raises(BadRequest, match="base64"):
         parse_ask(event({"audio": "not base64!!"}))
@@ -116,3 +123,14 @@ def test_volume_choices(volume):
 def test_volume_bad(volume):
     with pytest.raises(BadRequest):
         parse_ask(event({"text": "Q", "volumeDb": volume}))
+
+
+@pytest.mark.parametrize("value, heading", [(0, 0.0), (90.5, 90.5), (359.9, 359.9)])
+def test_heading_degrees_in_range(value, heading):
+    assert parse_ask(event({"text": "Q", "headingDegrees": value})).heading == heading
+
+
+@pytest.mark.parametrize("value", [360, -0.1, 1e9, "90", True, None, [90]])
+def test_heading_degrees_out_of_range_is_dropped(value):
+    # Like a broken sample: the question still goes ahead, without a heading.
+    assert parse_ask(event({"text": "Q", "headingDegrees": value})).heading is None

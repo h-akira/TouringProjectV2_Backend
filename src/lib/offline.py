@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from lib.request import UUID_RE, BadRequest, body_json, heading_sample, position
+from lib.request import UUID_RE, BadRequest, body_json, heading_sample, heading_value, position
 from lib.rides import utc_time
 
 
@@ -16,6 +16,7 @@ class OfflineAskInput:
     heading_sample: Optional[dict]
     ride_id: str
     updated_at: str
+    heading: Optional[float] = None
 
 
 def parse_offline_ask(event: dict) -> OfflineAskInput:
@@ -31,4 +32,5 @@ def parse_offline_ask(event: dict) -> OfflineAskInput:
     if not isinstance(ride_id, str) or not UUID_RE.match(ride_id):
         raise BadRequest("rideId must be a lowercase UUID")
     return OfflineAskInput(utc_time(data.get("askedAt"), "askedAt"), location, heading_sample(data.get("headingSample")),
-                           ride_id, utc_time(data.get("updatedAt"), "updatedAt"))
+                           ride_id, utc_time(data.get("updatedAt"), "updatedAt"),
+                           heading_value(data.get("headingDegrees")))

@@ -8,7 +8,9 @@ from lib import clients, store
 from lib.request import UUID_RE, BadRequest, user_name
 
 PRESIGN_SECONDS = 600
-_STATUS = {"pending": "processing", "processing": "processing", "completed": "completed", "failed": "failed"}
+# An unreached ask is never processed (slice 4 spec §4.4); it is reported as such (Backend #25).
+_STATUS = {"pending": "processing", "processing": "processing", "completed": "completed", "failed": "failed",
+           "offline": "offline"}
 
 
 def handler(event, context):

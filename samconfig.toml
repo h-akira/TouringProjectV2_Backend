@@ -13,4 +13,4 @@ resolve_s3 = true
 s3_prefix = "stack-trv2-dev-backend"
 confirm_changeset = false
 fail_on_empty_changeset = false
-parameter_overrides = "Environment=dev"
+parameter_overrides = "Environment=dev AgentRuntimeArn=/trv2/dev/agent-runtime-arn ConversationResetParameter=/trv2/dev/conversation-reset-minutes"

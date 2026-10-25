@@ -170,3 +170,79 @@ def test_deleting_an_ask_reads_its_ride_consistently(aws, monkeypatch):
     store.delete_ask(USER, ASK, "2026-10-21T01:00:00.000Z")
     assert reads and all(r.get("ConsistentRead") is True for r in reads)
     assert aws.table.get_item(Key=store.deleted_key(USER, "ask", ASK))["Item"]["rideId"] == "r1"
+
+
+def _busy_once(monkeypatch, table, name):
+    real = getattr(table, name)
+    failures = iter([_conflict(name)])
+
+    def busy_once(**params):
+        error = next(failures, None)
+        if error:
+            raise error
+        return real(**params)
+
+    monkeypatch.setattr(table, name, busy_once)
+
+
+def test_deleting_an_ask_during_a_transaction_on_it_is_tried_again(aws, monkeypatch, no_wait):
+    # A memo PUT's transaction on the same ask makes the plain delete fail for a moment (Backend #23).
+    store.create_ask(new_ask(rideId="r1"))
+    _busy_once(monkeypatch, clients.table(), "delete_item")
+    store.delete_ask(USER, ASK, "2026-10-21T01:00:00.000Z")
+    assert store.get_ask(USER, ASK) is None and len(no_wait) == 1
+
+
+def test_deleting_a_note_during_a_transaction_on_it_is_tried_again(aws, monkeypatch, no_wait):
+    aws.table.put_item(Item={**store.note_key(USER, "r1", "n1"), "noteId": "n1", "rideId": "r1"})
+    _busy_once(monkeypatch, clients.table(), "delete_item")
+    store.delete_note(USER, "r1", "n1", "2026-10-21T01:00:00.000Z")
+    assert store.get_note(USER, "r1", "n1") is None and len(no_wait) == 1
+
+
+def _spy_reads(monkeypatch):
+    table = clients.table()
+    client = table.meta.client
+    calls = {"batch": [], "get": []}
+    batch_get_item, get_item = client.batch_get_item, table.get_item
+
+    def batch(**params):
+        calls["batch"].append(params)
+        return batch_get_item(**params)
+
+    def get(**params):
+        calls["get"].append(params)
+        return get_item(**params)
+
+    monkeypatch.setattr(client, "batch_get_item", batch)
+    monkeypatch.setattr(table, "get_item", get)
+    return calls
+
+
+def test_the_marks_are_read_in_one_consistent_batch(aws, monkeypatch):
+    # One read for the record's mark and its ride's, instead of two in turn (Backend #24).
+    calls = _spy_reads(monkeypatch)
+    marks = [("note", "n1"), ("ride", "r1")]
+    assert store.has_deletion_mark(USER, marks) is False
+    store.mark_deleted(USER, "ride", "r1", "2026-10-21T01:00:00.000Z")
+    assert store.has_deletion_mark(USER, marks) is True
+    assert len(calls["batch"]) == 2 and calls["get"] == []
+    request = calls["batch"][0]["RequestItems"][clients.table().name]
+    assert request["ConsistentRead"] is True and len(request["Keys"]) == 2
+
+
+def test_marks_left_unread_are_read_again(aws, monkeypatch, no_wait):
+    client = clients.table().meta.client
+    batch_get_item = client.batch_get_item
+    first = {"done": False}
+
+    def unprocessed_once(**params):
+        if not first["done"]:
+            first["done"] = True
+            return {"Responses": {}, "UnprocessedKeys": params["RequestItems"]}
+        return batch_get_item(**params)
+
+    store.mark_deleted(USER, "note", "n1", "2026-10-21T01:00:00.000Z")
+    monkeypatch.setattr(client, "batch_get_item", unprocessed_once)
+    assert store.has_deletion_mark(USER, [("note", "n1"), ("ride", "r1")]) is True
+    assert len(no_wait) == 1

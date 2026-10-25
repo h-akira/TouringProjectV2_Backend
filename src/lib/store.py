@@ -60,10 +60,21 @@ def deleted_key(user: str, kind: str, record_id: str) -> dict:
 
 
 def has_deletion_mark(user: str, marks: list) -> bool:
-    """Whether any of the (kind, id) marks exists, read consistently. Used before costly work on a write that would be
-    refused anyway; the write itself still checks the marks in its transaction."""
+    """Whether any of the (kind, id) marks exists, read consistently in one batch (Backend #24). Used before costly
+    work on a write that would be refused anyway; the write itself still checks the marks in its transaction."""
     table = clients.table()
-    return any(table.get_item(Key=deleted_key(user, kind, record_id), ConsistentRead=True).get("Item") for kind, record_id in marks)
+    keys = [deleted_key(user, kind, record_id) for kind, record_id in marks]
+    request = {table.name: {"Keys": keys, "ConsistentRead": True, "ProjectionExpression": "pk"}} if keys else {}
+    attempt = 0
+    while request:
+        if attempt:
+            _sleep(0.05 * 2 ** (attempt - 1))
+        page = table.meta.client.batch_get_item(RequestItems=request)
+        if page.get("Responses", {}).get(table.name):
+            return True
+        request = page.get("UnprocessedKeys") or {}
+        attempt += 1
+    return False
 
 
 def _retrying_conflicts(write: Callable[[], Any]) -> Any:
@@ -288,6 +299,7 @@ def _query_keys(user: str, prefix: str, ride_id: Optional[str] = None) -> list:
 
 
 def _delete_all(keys: list) -> None:
+    # The batch writer sends again what DynamoDB leaves unprocessed (UnprocessedItems), so no retry is added here.
     with clients.table().batch_writer() as batch:
         for key in keys:
             batch.delete_item(Key={"pk": key["pk"], "sk": key["sk"]})
@@ -298,12 +310,13 @@ def delete_ask(user: str, ask_id: str, deleted_at: str) -> None:
     # The ask may have been written a moment ago; its mark must still name its ride (Backend #18).
     stored = get_ask(user, ask_id, consistent=True)
     mark_deleted(user, "ask", ask_id, deleted_at, ride_id=(stored or {}).get("rideId"))
-    clients.table().delete_item(Key=ask_key(user, ask_id))
+    # A memo PUT's transaction on the ask makes the delete fail for a moment (Backend #23).
+    _retrying_conflicts(lambda: clients.table().delete_item(Key=ask_key(user, ask_id)))
 
 
 def delete_note(user: str, ride_id: str, note_id: str, deleted_at: str) -> None:
     mark_deleted(user, "note", note_id, deleted_at, ride_id=ride_id)
-    clients.table().delete_item(Key=note_key(user, ride_id, note_id))
+    _retrying_conflicts(lambda: clients.table().delete_item(Key=note_key(user, ride_id, note_id)))
 
 
 def delete_ride(user: str, ride_id: str, deleted_at: str) -> dict:

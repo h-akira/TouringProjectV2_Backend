@@ -517,58 +517,6 @@ button { font: inherit; color: inherit; }
 
         <div class="viewport" id="viewport">
 
-          <!-- SC-01 Setup -->
-          <section class="screen" data-id="SC-01">
-            <div class="appbar"><button class="iconbtn" data-act="back" aria-label="戻る"></button><h1>はじめに</h1></div>
-            <div class="pad">
-              <div class="steps" id="setupSteps"><i></i><i></i><i></i><i></i></div>
-
-              <div data-when="perm" class="pad" style="padding:0">
-                <div class="big-ico">📍</div>
-                <h2 style="margin:0;font-size:22px">許可を出してください</h2>
-                <p class="muted" style="margin:0">走行中に触らずに使うため、次の3つが必要です。</p>
-                <div class="list">
-                  <div class="perm"><div class="lead-ico">📍</div><div class="grow"><div class="t" style="font-weight:700">位置情報「常に許可」</div><div class="small muted">アプリが背面でもルートを記録するため</div></div><span class="ok-mark">✓</span></div>
-                  <div class="perm"><div class="lead-ico">🎤</div><div class="grow"><div style="font-weight:700">マイク</div><div class="small muted">声で質問するため</div></div><span class="ok-mark">✓</span></div>
-                  <div class="perm"><div class="lead-ico">🔔</div><div class="grow"><div style="font-weight:700">通知</div><div class="small muted">記録中であることを表示するため</div></div><button class="btn sm primary">許可する</button></div>
-                </div>
-              </div>
-
-              <div data-when="key" class="pad" style="padding:0">
-                <div class="big-ico">🔑</div>
-                <h2 style="margin:0;font-size:22px">接続とユーザー名</h2>
-                <label class="field-label" for="setupKey" style="margin-bottom:0">接続キー</label>
-                <input id="setupKey" class="input" placeholder="配布時に受け取ったキーを貼り付け" value="tk_live_••••••••••••3f9a">
-                <div class="row small" style="color:var(--ok);margin-top:-4px">✓ 接続を確かめました</div>
-                <label class="field-label" for="setupUser" style="margin:6px 0 0">ユーザー名</label>
-                <input id="setupUser" class="input" value="k3x9q2" style="font-family:ui-monospace,Menlo,monospace;font-size:18px">
-                <div class="small muted" style="margin-top:-4px">新しく始めるなら、このままで構いません。<b>以前の端末から引き継ぐときは、そのユーザー名を入力</b>すると記録が戻ります。</div>
-              </div>
-
-              <div data-when="button" class="pad" style="padding:0">
-                <div class="big-ico">🎧</div>
-                <h2 style="margin:0;font-size:22px">インカムのボタン</h2>
-                <p class="muted" style="margin:0">インカムの音声アシスタントのボタンを押してみてください。アプリの選択画面が出たら、このアプリを<b>「常時」</b>で選びます。</p>
-                <div class="card row"><div class="lead-ico">⏳</div><div class="grow"><b>ボタンの押下を待っています…</b><div class="small muted">押されるとここに ✓ が付きます</div></div></div>
-                <details class="card text-ask"><summary>Google が開いてしまうとき <span class="chev">▾</span></summary><div class="small muted">端末の設定で、インカムのボタンの行き先から Google を外す手順を表示します。既定のアシスタントは Google のままで構いません。</div></details>
-              </div>
-
-              <div data-when="return" class="pad" style="padding:0">
-                <div class="big-ico">↩️</div>
-                <h2 style="margin:0;font-size:22px">応答後に戻るアプリ</h2>
-                <p class="muted" style="margin:0">インカムのボタンで質問したら、送った時点でこのアプリへ戻ります（回答は戻ったあとに読み上げます）。ふだん使っているナビを選んでください。</p>
-                <button class="list-item list" data-go="SC-10"><div class="lead-ico">🗺️</div><div class="grow"><div class="t">戻り先を選ぶ</div><div class="s">未設定</div></div><span class="chev" data-chev></span></button>
-                <p class="small muted" style="margin:0">あとから「設定」でも選べます。</p>
-              </div>
-
-              <div style="flex:1"></div>
-              <div class="row">
-                <button class="btn tonal" id="setupPrev">戻る</button>
-                <button class="btn primary grow" id="setupNext">次へ</button>
-              </div>
-            </div>
-          </section>
-
           <!-- SC-02 Home: fixed layout, never scrolls (it is glanced at while riding) -->
           <section class="screen home-fixed" data-id="SC-02">
             <div class="appbar home"><h1><button class="user-chip" data-go="SC-18" aria-label="ユーザー名">👤 k3x9q2</button></h1>
@@ -604,20 +552,14 @@ button { font: inherit; color: inherit; }
                 <div class="small muted">走行を記録しているあいだだけ質問できます</div>
               </div>
 
-              <div class="card" style="padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+              <div class="card" style="padding:10px 14px">
                 <div class="heading-row">
-                  <div class="compass"><svg viewBox="0 0 24 24" style="transform:rotate(-45deg)"><path fill="currentColor" d="M12 2l6 18-6-4-6 4z"/></svg></div>
-                  <div class="grow">
-                    <div style="font-weight:700">北西へ走行中</div>
-                    <div class="small muted">右手 北東 ／ 左手 南西</div>
-                  </div>
+                  <div class="standby grow"><span class="standby-ico">🎧</span><span class="small"><b>インカムのボタンで話せます</b></span></div>
                   <button class="btn sm" style="min-height:48px;background:var(--memo);color:#fff;padding:2px 10px;flex-direction:column;gap:0;font-size:12px;line-height:1.2" data-act="newMemo"><span style="font-size:18px">📝</span>地点メモ</button>
                 </div>
-                <div class="standby"><span class="standby-ico">🎧</span><span class="small"><b>インカムのボタンで話せます</b></span></div>
               </div>
 
               <button class="btn outline block new-convo" data-overlay="DL-02">
-                <span class="convo-status">💬 10:20 から会話中<span class="muted"> · 3問</span></span>
                 <span class="convo-action">↻ 新しい会話を始める</span>
                 <span class="small muted" style="font-weight:400">10:35 まで質問がなければ自動で区切ります</span>
               </button>
@@ -718,12 +660,13 @@ button { font: inherit; color: inherit; }
               <div class="list">
                 <button class="list-item" data-go="SC-10"><div class="lead-ico">↩️</div><div class="grow"><div class="t">応答後に戻るアプリ</div></div><span class="val" id="setReturnVal">Google マップ · すぐ戻る</span><span class="chev" data-chev></span></button>
                 <button class="list-item" data-go="SC-16"><div class="lead-ico">🏍️</div><div class="grow"><div class="t">走行の記録</div></div><span class="val" id="setMaxVal">最長 24時間</span><span class="chev" data-chev></span></button>
-                <button class="list-item" data-go="SC-11"><div class="lead-ico">🎙️</div><div class="grow"><div class="t">録音の設定</div></div><span class="val">上限 20秒 · 合図 2秒</span><span class="chev" data-chev></span></button>
+                <button class="list-item" data-go="SC-11"><div class="lead-ico">🎙️</div><div class="grow"><div class="t">録音の設定</div></div><span class="val">上限 20秒 · 合図 1.5秒</span><span class="chev" data-chev></span></button>
                 <button class="list-item" data-go="SC-21"><div class="lead-ico">🔊</div><div class="grow"><div class="t">回答の音量</div></div><span class="val">+6dB</span><span class="chev" data-chev></span></button>
               </div>
               <div class="section-title">確認</div>
               <div class="list">
                 <button class="list-item" data-go="SC-12"><div class="lead-ico">🎧</div><div class="grow"><div class="t">録音の確認</div><div class="s">試し録り・送った録音を聞き直す</div></div><span class="chev" data-chev></span></button>
+                <button class="list-item" data-go="SC-22"><div class="lead-ico">🧭</div><div class="grow"><div class="t">位置と方位の確認</div><div class="s">GPS と進行方向を確かめる</div></div><span class="chev" data-chev></span></button>
               </div>
               <div class="section-title">ユーザー・接続・データ</div>
               <div class="list">
@@ -733,7 +676,6 @@ button { font: inherit; color: inherit; }
               </div>
               <div class="section-title">その他</div>
               <div class="list">
-                <button class="list-item" data-go="SC-01"><div class="lead-ico">🧭</div><div class="grow"><div class="t">セットアップをやり直す</div></div><span class="chev" data-chev></span></button>
                 <div class="list-item" style="cursor:default"><div class="lead-ico">ℹ️</div><div class="grow"><div class="t">バージョン</div></div><span class="val">2.0.0</span></div>
               </div>
             </div>
@@ -758,17 +700,47 @@ button { font: inherit; color: inherit; }
                 <span class="field-label">開始の合図</span>
                 <div class="small muted" style="margin-bottom:8px">録音が始まったことを知らせる音の長さ</div>
                 <div class="seg-in" data-group="cue">
-                  <button aria-pressed="false">なし</button><button aria-pressed="false">0.5秒</button><button aria-pressed="false">1秒</button><button aria-pressed="true">2秒</button><button aria-pressed="false">3秒</button>
+                  <button aria-pressed="false">なし</button><button aria-pressed="false">0.5秒</button><button aria-pressed="false">1秒</button><button aria-pressed="true">1.5秒</button><button aria-pressed="false">2秒</button><button aria-pressed="false">3秒</button>
                 </div>
               </div>
-              <div>
-                <span class="field-label">録音の用途</span>
-                <div class="small muted" style="margin:0 2px 8px">機種によって聞き取りやすいものが違います</div>
-                <div class="list" data-group="src">
-                  <button class="radio-item"><span class="radio on"></span><div><div style="font-weight:600">音声認識</div><div class="small muted">既定</div></div></button>
-                  <button class="radio-item"><span class="radio"></span><div><div style="font-weight:600">通話</div><div class="small muted">雑音を抑える。機種によっては無音になる</div></div></button>
-                  <button class="radio-item"><span class="radio"></span><div><div style="font-weight:600">標準のマイク</div></div></button>
-                  <button class="radio-item"><span class="radio"></span><div><div style="font-weight:600">未加工</div><div class="small muted">処理をかけずに録る</div></div></button>
+              <button class="btn tonal block">既定値に戻す</button>
+            </div>
+          </section>
+
+          <!-- SC-22 Position and heading check -->
+          <section class="screen" data-id="SC-22">
+            <div class="appbar"><button class="iconbtn" data-act="back" aria-label="戻る"></button><h1>位置と方位の確認</h1></div>
+            <div class="pad" style="padding-top:0">
+              <div class="card">
+                <div class="heading-row">
+                  <div class="compass"><svg viewBox="0 0 24 24" style="transform:rotate(-45deg)"><path fill="currentColor" d="M12 2l6 18-6-4-6 4z"/></svg></div>
+                  <div class="grow">
+                    <div style="font-weight:700;font-size:20px">北西へ（315°）</div>
+                    <div class="small muted">右手 北東 ／ 左手 南西</div>
+                  </div>
+                </div>
+                <div class="small muted">位置の精度 6m · 基準の点 18m 手前（2分前。止まる直前の向きを保っています）</div>
+                <div class="small muted">走行のルートから求めています。いま質問すると、この方位を AI に渡します。</div>
+              </div>
+              <div class="card">
+                <span class="field-label">基準の距離</span>
+                <div class="small muted" style="margin-bottom:8px">今の位置からこれだけ離れた点との向きを方位にします</div>
+                <div class="seg-in" data-group="hdist" style="grid-template-columns:repeat(4,1fr)">
+                  <button aria-pressed="false">10m</button><button aria-pressed="true">15m</button><button aria-pressed="false">20m</button><button aria-pressed="false">30m</button>
+                </div>
+              </div>
+              <div class="card">
+                <span class="field-label">精度の上限</span>
+                <div class="small muted" style="margin-bottom:8px">これより精度の悪い位置は使いません</div>
+                <div class="seg-in" data-group="hacc" style="grid-template-columns:repeat(4,1fr)">
+                  <button aria-pressed="false">10m</button><button aria-pressed="true">20m</button><button aria-pressed="false">30m</button><button aria-pressed="false">50m</button>
+                </div>
+              </div>
+              <div class="card">
+                <span class="field-label">向きを保つ上限</span>
+                <div class="small muted" style="margin-bottom:8px">止まっているあいだ、止まる直前の向きを使い続ける長さ</div>
+                <div class="seg-in" data-group="hhold" style="grid-template-columns:repeat(4,1fr)">
+                  <button aria-pressed="false">2分</button><button aria-pressed="false">5分</button><button aria-pressed="true">10分</button><button aria-pressed="false">30分</button>
                 </div>
               </div>
               <button class="btn tonal block">既定値に戻す</button>
@@ -783,7 +755,7 @@ button { font: inherit; color: inherit; }
                 <span class="field-label">連続して記録できる最長時間</span>
                 <div class="small muted" style="margin-bottom:10px">開始または再開してから一時停止せずに記録し続けた時間がこれを超えると、終了し忘れとみなして自動で終了・保存します。一時停止して再開すると数え直します</div>
                 <div class="seg-in" data-group="maxride" style="grid-template-columns:repeat(4,1fr)">
-                  <button aria-pressed="false">12時間</button><button aria-pressed="true">24時間</button><button aria-pressed="false">48時間</button><button aria-pressed="false">72時間</button>
+                  <button aria-pressed="false">6時間</button><button aria-pressed="false">12時間</button><button aria-pressed="true">24時間</button><button aria-pressed="false">48時間</button>
                 </div>
               </div>
               <div class="small muted" style="padding:0 4px">泊まりがけでも、休憩や宿泊で一時停止していれば数え直すので、ふだんは変える必要はありません。記録中の走行にも、変更はすぐに反映されます。</div>
@@ -1076,36 +1048,14 @@ const appState = { timing: "send", on: true, current: "com.google.android.apps.m
 
 // ===== Screen catalogue & spec memos =====
 const NAV_GROUPS = [
-  { title: "はじめに", items: ["SC-01"] },
   { title: "ホーム タブ", items: ["SC-02", "SC-03", "SC-17", "SC-04", "SC-19", "DL-02"] },
   { title: "記録 タブ", items: ["SC-05", "SC-06", "SC-07", "SC-08", "DL-01"] },
-  { title: "設定 タブ", items: ["SC-09", "SC-16", "SC-10", "SC-11", "SC-12", "SC-21", "SC-18", "DL-03", "SC-13", "SC-14"] }
+  { title: "設定 タブ", items: ["SC-09", "SC-16", "SC-10", "SC-11", "SC-12", "SC-22", "SC-21", "SC-18", "DL-03", "SC-13", "SC-14"] }
 ];
 const TAB_OF = { "SC-02": "SC-02", "SC-03": "SC-02", "SC-19": "SC-02", "SC-05": "SC-05", "SC-06": "SC-05", "SC-07": "SC-05", "SC-08": "SC-05",
-  "SC-09": "SC-09", "SC-16": "SC-09", "SC-10": "SC-09", "SC-11": "SC-09", "SC-12": "SC-09", "SC-21": "SC-09", "SC-13": "SC-09", "SC-14": "SC-09", "SC-18": "SC-09" };
+  "SC-09": "SC-09", "SC-16": "SC-09", "SC-10": "SC-09", "SC-11": "SC-09", "SC-12": "SC-09", "SC-22": "SC-09", "SC-21": "SC-09", "SC-13": "SC-09", "SC-14": "SC-09", "SC-18": "SC-09" };
 
 const SPEC = {
-  "SC-01": { name: "初回セットアップ", role: "ハンズフリーが成立するのに必要な準備を、順に案内する。",
-    states: [["perm","1 許可"],["key","2 接続とユーザー名"],["button","3 インカムのボタン"],["return","4 戻り先"]],
-    body: `<h3>流れ</h3><ul>
-<li>初回起動時に自動で表示する。4ステップ。上部の帯で進み具合を示す。</li>
-<li>「次へ」で進む。未完了のステップがあっても先へ進めるが、ホームに警告の帯を出す。</li>
-<li>最後のステップで「はじめる」を押すとホーム（SC-02）へ。</li>
-<li>設定（SC-09）の「セットアップをやり直す」からいつでも再表示できる。</li></ul>
-<h3>1 許可</h3><ul>
-<li>位置情報は「常に許可」が必要（走行の記録を背面で続けるため）。「アプリの使用中のみ」の場合は、記録が背面で止まることを説明して再設定へ誘導する。</li>
-<li>マイク・通知も同じ画面で求める。許可済みの項目には ✓。</li></ul>
-<h3>2 接続とユーザー名</h3><ul>
-<li>配布時に渡す接続キーを貼り付ける。「次へ」でサーバーに疎通を確かめ、成功すれば保存して ✓ を出す。失敗は理由を赤字で出し、先へは進めるが警告を残す。</li>
-<li>ユーザー名の欄には、ランダムな英小文字と数字の6文字を入れておく。新しく始めるならそのままでよい。</li>
-<li>以前の端末から引き継ぐときは、そのユーザー名を入力する。既にある名前なら「この名前の記録を引き継ぎます」と出し、記録を読み込む。</li></ul>
-<h3>3 インカムのボタン</h3><ul>
-<li>インカムのボタンを押すとアプリの選択画面が出るので、このアプリを「常時」で選ぶよう案内する。</li>
-<li>このアプリでボタンの押下を受け取れたら ✓ を出す。</li>
-<li>Google が開いてしまう場合の外し方を折りたたみで説明する（既定のアシスタントは Google のままでよい）。</li></ul>
-<h3>4 戻り先</h3><ul>
-<li>SC-10 を開いて選ぶ。選ばずに終えてもよい（ホームに「未設定」の帯が出る）。</li></ul>` },
-
   "SC-02": { name: "ホーム", role: "走行の記録の開始・一時停止・再開・終了と、待機中であることの表示。走行中にチラ見することがある。",
     states: [["riding","走行を記録中"],["paused","一時停止中"],["idle","記録していない"],["failed","失敗の表示"],["noreturn","戻り先が未設定"]],
     body: `<h3>レイアウトの原則</h3><ul>
@@ -1131,18 +1081,17 @@ const SPEC = {
 <li>「終了」は SC-04 のシートを開く（誤って終えないよう、ここでは終了しない）。</li>
 <li>「📝 走行メモ」で、記録中（一時停止中を含む）の走行のメモを SC-08 で開く。停車中にすぐ書き足せるように。走行を記録していないときは出さない。</li>
 <li>記録中・一時停止中は端末の通知にもその状態を出し続ける（タップでこの画面）。ステータスバーの REC／⏸ はその表現。</li></ul>
-<h3>進行方向と地点メモ</h3><ul>
-<li>「北西へ走行中」と、右手・左手の方角。方位磁針の矢印は進行方向を指す。</li>
-<li>同じカードの右に「📝 地点メモ」を置く（高さを増やさない）。停車してすぐ書けるよう、押すと SC-19 を新規で開く。走行を記録していないときは出さない（記録中と一時停止中だけ。adr/0008）。</li>
-<li>停車中・曲がった直後で方位が出せないときは「進行方向：走り出すと出ます」。</li></ul>
+<h3>地点メモ</h3><ul>
+<li>「インカムのボタンで話せます」の行の右に「📝 地点メモ」を置く（高さを増やさない）。停車してすぐ書けるよう、押すと SC-19 を新規で開く。走行を記録していないときは出さない（記録中と一時停止中だけ。adr/0008）。</li>
+<li>進行方向はホームに出さない（走行中はナビを見ている）。GPS と方位は設定の SC-22 で確かめる。</li></ul>
 <h3>質問の入口</h3><ul>
 <li>走行中の質問はインカムのボタンだけを想定する。「インカムのボタンで話せます」という小さな待機の表示を置き、使える状態だと分かるようにする（大きくはしない）。</li>
 <li>質問を受けるのは走行の記録中だけ（adr/0008）。走行を記録していないとき・一時停止中にインカムのボタンを押すと、録音を始めず、質問できないこと（一時停止中なら、再開すると質問できること）を端末の音声で知らせる。</li>
 <li>「押して話す」🎤「文字で質問」⌨ はテストや停車中のためのもので、上部のバーに小さなアイコンボタンとして置く。「押して話す」は SC-03 の録音中へ。記録していないとき・一時停止中は押せない形にして、理由を添える。</li>
-<li>「文字で質問」は下からシートを開く。入力は500字まで。送ると SC-03 の回答待ちから始まる。文字で聞いても回答は読み上げる。</li></ul>
+<li>「文字で質問」は下からシートを開く。入力は500字まで。送ると SC-03 の回答待ちから始まる。文字で聞いても回答は読み上げる。通信できないときはシートを閉じずに「通信できません」と出し、打った文を残す（質問できなかった地点は残さない）。</li></ul>
 <h3>会話の続き</h3><ul>
 <li>会話の文脈は続けるのが基本。区切るのは、利用者が「新しい会話を始める」（DL-02）を押したときと、最後の質問から一定の時間が経ったときだけ。走行の開始・一時停止・再開・終了では区切らない。</li>
-<li>「新しい会話を始める」は停車中に手袋のまま押せるよう、ホームでいちばん大きなボタンにする。ボタンの中の上段に、会話がいつから続いているかと何問目かを大きく出す（状況）。下段に「新しい会話を始める」（操作）。</li>
+<li>「新しい会話を始める」は停車中に手袋のまま押せるよう、ホームでいちばん大きなボタンにする。ボタンには「新しい会話を始める」と出す。</li>
 <li>区切った直後（まだ質問していない）は「新しい会話です」と出し、ボタンは押せない見た目にする。</li>
 <li>最後の質問から一定の時間（既定15分。管理者が設定で変える）が経つと自動で区切る。ボタンの下段に「◯:◯◯ まで質問がなければ自動で区切ります」と出す。</li></ul>
 <h3>帯（警告）</h3><table><tr><th>種類</th><th>出る条件</th><th>消え方</th></tr>
@@ -1162,7 +1111,7 @@ const SPEC = {
 <li>押せる領域は「上の大きな領域」と「下のやめるボタン」の2つだけ。入れ子にしない。</li>
 <li>下のボタンは白い太枠で、上の領域と見た目を分ける。</li></ul>
 <h3>録音中（赤）</h3><ul>
-<li>開始時に合図の音を鳴らす（既定2秒、SC-11 で変更）。</li>
+<li>開始時に合図の音を鳴らす（既定1.5秒、SC-11 で変更）。</li>
 <li>「話してください」と残り秒数を特大で。上限は既定20秒（SC-11）。0になると自動で送る。</li>
 <li>インカムのボタンの再押し、または赤い領域のどこを押しても送信（手袋でも狙わずに押せる）。</li>
 <li>下のボタン「送らずにやめる」で録音を捨てて SC-02 へ。</li>
@@ -1275,7 +1224,7 @@ const SPEC = {
     body: `<ul>
 <li>見出しに、走行の質問の中での位置（「会話 3 / 5」）。‹ › でその走行の前後の質問へ移る。</li>
 <li>小さな地図: その地点のピン。走行から開いたときだけ、その走行のルートを淡く描く。</li>
-<li>日時・場所（住所）・進行方向（右手・左手の方角）。方位が出ていなかった質問は「停車中」。</li>
+<li>日時・場所（住所）・進行方向（右手・左手の方角）。方位が出ていなかった質問は「不明」。</li>
 <li>質問（聞き取られた文）と回答を吹き出しで。会話の文脈の何問目かを小さく添える。</li>
 <li>声で聞いたか文字で聞いたかを出す。</li>
 <li>通信できず質問できなかった地点は、質問と回答の代わりに「📵 通信できず、質問できなかった」と出す。質問の内容は残っていないので、何を聞きたかったかはメモに書けることを示す。</li>
@@ -1326,7 +1275,7 @@ const SPEC = {
 
   "SC-16": { name: "走行の記録", role: "連続して記録できる最長時間を変える。", states: [],
     body: `<ul>
-<li>連続して記録できる最長時間: 12・24・48・72時間から選ぶ。既定は24時間。</li>
+<li>連続して記録できる最長時間: 6・12・24・48時間から選ぶ。既定は24時間。</li>
 <li>開始または再開から、一時停止せずに記録し続けた時間で数える。一時停止→再開で数え直す。一時停止中は数えない。</li>
 <li>達したら終了し忘れとみなし、自動で終了・保存して通知で知らせる。</li>
 <li>変更は即時に保存し、記録中の走行にも反映する。すでに新しい最長時間を超えていたら、その時点で終了する。</li></ul>` },
@@ -1334,21 +1283,32 @@ const SPEC = {
   "SC-11": { name: "録音の設定", role: "録音の条件を変える。", states: [],
     body: `<table><tr><th>項目</th><th>選べる値</th><th>既定</th></tr>
 <tr><td>録音の上限</td><td>10〜60秒（5秒刻み）</td><td>20秒</td></tr>
-<tr><td>開始の合図</td><td>なし・0.5・1・2・3秒</td><td>2秒</td></tr>
-<tr><td>録音の用途</td><td>音声認識・通話・標準のマイク・未加工</td><td>音声認識</td></tr></table>
-<ul><li>変更は即時に保存する。</li>
-<li>録音の用途は機種によって合うものが違うことを説明に書く。</li>
+<tr><td>開始の合図</td><td>なし・0.5・1・1.5・2・3秒</td><td>1.5秒</td></tr></table>
+<ul><li>変更は即時に保存し、次の質問から効く。SC-12 の試し録りも同じ値を使う。</li>
+<li>インカムは音の頭を落とすので、合図が短いと聞こえにくいことを説明に書く。</li>
 <li>この画面から録音の確認（SC-12）へは移らない。SC-12 へは設定（SC-09）の一覧からだけ入る。</li>
-<li>「既定値に戻す」は3項目すべてを既定に戻す（確認は出さない。トーストで知らせる）。</li></ul>` },
+<li>「既定値に戻す」は2項目を既定に戻す（確認は出さない。トーストで知らせる）。</li></ul>` },
+
+  "SC-22": { name: "位置と方位の確認", role: "GPS が正しいかを確かめ、進行方向の求め方を変える。停車中に使う。", states: [],
+    body: `<h3>表示</h3><ul>
+<li>開いているあいだ、その場で更新する: 方位（16方位と度数）・右手と左手・位置の精度・基準にした点の距離と何秒前か。</li>
+<li>走行の記録中は走行のルートの点で、記録していないときはこの画面を開いているあいだに集めた点で、質問と同じ計算をする。出ている方位が、いま質問したときに AI に渡る方位。</li>
+<li>方位が出ないときは理由を出す: 位置が取れない・精度が悪い・まだ動いていない・止まって向きを保つ上限を超えた。</li></ul>
+<h3>求め方の設定</h3><table><tr><th>項目</th><th>選べる値</th><th>既定</th></tr>
+<tr><td>基準の距離</td><td>10・15・20・30m</td><td>15m</td></tr>
+<tr><td>精度の上限</td><td>10・20・30・50m</td><td>20m</td></tr>
+<tr><td>向きを保つ上限</td><td>2・5・10・30分</td><td>10分</td></tr></table>
+<ul><li>変更は即時に保存し、次の計算から効く。「既定値に戻す」は3項目を既定に戻す（確認は出さない。トーストで知らせる）。</li>
+<li>画面を離れたら、この画面のための位置の監視を止める（走行のルートの記録は止めない）。</li></ul>` },
 
   "SC-12": { name: "録音の確認", role: "録音の具合を確かめる。録音が悪いのか、聞き取りが悪いのかを切り分ける。", states: [["idle","通常"],["trial","試し録り中"],["play","試し録りの再生"]],
     body: `<h3>試し録り</h3><ul>
-<li>今の録音の設定（用途）で、本番と同じくインカムのマイクで録る。サーバーには送らない。</li>
+<li>今の録音の設定（上限・合図）で、本番と同じくインカムのマイクで録る。サーバーには送らない。</li>
 <li>録り終える（ボタン・インカムのボタン・上限）と、すぐに再生する。</li>
 <li>試し録りの音声は保存しない（直近10件の数にも含めない）。</li></ul>
 <h3>送った録音（直近10件）</h3><ul>
 <li>質問の音声は容量を食うので原則として残さない。録音できているか・AI に正しく渡せているかを確かめるためだけに、直近10件を端末に残し、この画面でだけ聞ける。</li>
-<li>新しい順。日時・長さ・録ったマイク（インカム／本体のマイク）・用途・聞き取られた文。</li>
+<li>新しい順。日時・長さ・録ったマイク（インカム／本体のマイク）・聞き取られた文。</li>
 <li>聞き取られた文が空のときは赤字で「聞き取れませんでした」。</li>
 <li>11件目を録ると、最も古い音声を消す。文字の記録（会話）は消えない。</li>
 <li>▶ で再生する。この画面から会話の詳細（SC-07）などの記録の画面へは移らない（録音の確認は設定の中で完結させる）。</li>
@@ -1477,7 +1437,7 @@ function show(id) {
   if (id === "SC-06") states[id] = params.trip;
   applyState(id);
   $("#device").classList.toggle("fullcolor", id === "SC-03");
-  $("#tabbar").hidden = ["SC-03", "SC-01", "SC-08", "SC-19"].includes(id);
+  $("#tabbar").hidden = ["SC-03", "SC-08", "SC-19"].includes(id);
   $$("#tabbar button").forEach(b => b.setAttribute("aria-current", String(b.dataset.tab === TAB_OF[id])));
   renderSpec(id);
   renderNav(id);
@@ -1585,18 +1545,8 @@ function renderSpec(id) {
 let convoTimer = null;
 function render(id) {
   clearInterval(convoTimer);
-  ({ "SC-01": renderSetup, "SC-02": renderHome, "SC-03": renderConvo, "SC-05": renderList, "SC-06": renderTrip,
+  ({ "SC-02": renderHome, "SC-03": renderConvo, "SC-05": renderList, "SC-06": renderTrip,
      "SC-07": renderConv, "SC-08": renderMemo, "SC-19": renderPointMemo, "SC-10": renderReturn, "SC-12": renderRec }[id] || (() => {}))();
-}
-
-function renderSetup() {
-  const order = ["perm", "key", "button", "return"];
-  const i = order.indexOf(states["SC-01"]);
-  $$("#setupSteps i").forEach((el, k) => el.classList.toggle("on", k <= i));
-  $("#setupPrev").hidden = i === 0;
-  $("#setupNext").textContent = i === 3 ? "はじめる" : "次へ";
-  $("#setupPrev").onclick = () => setState("SC-01", order[i - 1]);
-  $("#setupNext").onclick = () => { if (i === 3) { stack = ["SC-02"]; show("SC-02"); } else setState("SC-01", order[i + 1]); };
 }
 
 function renderHome() {
@@ -1803,7 +1753,7 @@ function renderConv() {
     <dl class="meta-grid card" style="margin:0">
       <dt>日時</dt><dd>${fmtDay(q.day)} ${q.t}</dd>
       <dt>場所</dt><dd>${esc(q.addr)}</dd>
-      <dt>進行方向</dt><dd>${q.dir ? `${q.dir}へ走行中（右手 ${q.right}・左手 ${q.left}）` : "停車中"}</dd>
+      <dt>進行方向</dt><dd>${q.dir ? `${q.dir}へ走行中（右手 ${q.right}・左手 ${q.left}）` : "不明"}</dd>
       <dt>入力</dt><dd>${q.via === "text" ? "⌨ 文字で質問" : "🎤 声で質問"}</dd>
       <dt>会話</dt><dd>${q.offline ? "会話の文脈には入れていない" : `${q.ctx}問目${q.newCtx || q.ctx === 1 ? "（新しい会話の始まり）" : ""}`}</dd>
     </dl>
@@ -1880,14 +1830,14 @@ function renderReturn() {
 function renderRec() {
   const st = states["SC-12"];
   const trial = {
-    idle: `<button class="btn primary block" id="trialBtn" style="min-height:60px">● 試し録りする</button><div class="small muted" style="margin-top:6px">今の設定（用途: 音声認識）で、インカムのマイクで録ります。送信はしません。</div>`,
+    idle: `<button class="btn primary block" id="trialBtn" style="min-height:60px">● 試し録りする</button><div class="small muted" style="margin-top:6px">今の録音の設定で、インカムのマイクで録ります。送信はしません。</div>`,
     trial: `<button class="btn block" id="trialBtn" style="min-height:60px;background:var(--rec);color:#fff">■ 止めて再生する（あと 6 秒）</button><div class="small muted" style="margin-top:6px">インカムのボタンでも止められます</div>`,
-    play: `<div class="audio"><button class="play" id="trialBtn">${ICON_PLAY}</button><div class="grow"><div style="font-weight:600">試し録り · 再生中</div><div class="bar" style="margin:6px 0;background:linear-gradient(90deg,var(--accent) 40%,var(--line) 40%)"></div><div class="small muted">0:02 / 0:05 · インカム · 音声認識</div></div></div>`
+    play: `<div class="audio"><button class="play" id="trialBtn">${ICON_PLAY}</button><div class="grow"><div style="font-weight:600">試し録り · 再生中</div><div class="bar" style="margin:6px 0;background:linear-gradient(90deg,var(--accent) 40%,var(--line) 40%)"></div><div class="small muted">0:02 / 0:05 · インカム</div></div></div>`
   }[st];
   const rows = AUDIO.map((q, k) => {
     const empty = k === 4;
     return `<div class="rec-entry"><button class="play" aria-label="再生" style="width:40px;height:40px">${ICON_PLAY}</button>
-      <div class="grow"><div class="small muted">${fmtDay(q.day, false)} ${q.t} · 0:${String(q.len).padStart(2, "0")} · ${q.mic} · 音声認識</div>
+      <div class="grow"><div class="small muted">${fmtDay(q.day, false)} ${q.t} · 0:${String(q.len).padStart(2, "0")} · ${q.mic}</div>
       <div class="tr${empty ? " empty" : ""}">${empty ? "聞き取れませんでした" : "「" + esc(q.q) + "」"}</div></div></div>`;
   }).join("");
   $("#recBody").innerHTML = `
@@ -1901,7 +1851,7 @@ function renderRec() {
 
 // ===== Global events =====
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-go-memo],[data-fullmap],[data-jump],[data-go],[data-go-trip],[data-go-conv],[data-tab],[data-act],[data-overlay],[data-close],[data-state-set],[data-theme-set],[data-step],.seg-in button,[data-group=src] .radio-item");
+  const t = e.target.closest("[data-go-memo],[data-fullmap],[data-jump],[data-go],[data-go-trip],[data-go-conv],[data-tab],[data-act],[data-overlay],[data-close],[data-state-set],[data-theme-set],[data-step],.seg-in button");
   if (!t) return;
   if (t.dataset.themeSet) {
     const v = t.dataset.themeSet;
@@ -1921,7 +1871,6 @@ document.addEventListener("click", e => {
   if (t.dataset.go) { if (t.dataset.stateTo) states[t.dataset.go] = t.dataset.stateTo; closeOverlays(); return go(t.dataset.go); }
   if (t.dataset.step) { const el = $("#maxSec"); const v = Math.min(60, Math.max(10, parseInt(el.textContent, 10) + +t.dataset.step)); el.textContent = v + "秒"; return; }
   if (t.matches(".seg-in button")) { $$("button", t.parentElement).forEach(b => b.setAttribute("aria-pressed", String(b === t))); return; }
-  if (t.matches("[data-group=src] .radio-item")) { $$(".radio", t.parentElement).forEach(r => r.classList.remove("on")); $(".radio", t).classList.add("on"); return; }
   const act = t.dataset.act;
   if (act === "back") return back();
   if (act === "startTrip") { if (t.disabled) return; closeOverlays(); states["SC-02"] = "riding"; show("SC-02"); toast("走行の記録を始めました"); return; }
@@ -1955,9 +1904,8 @@ function exitFullMaps() {
 function jump(id) {
   closeOverlays();
   if (OVERLAYS.includes(id)) return openOverlay(id, { dl: id === "DL-01" ? (["trip", "rec", "memo", "key"].includes(params.dl) ? params.dl : "conv") : undefined });
-  const roots = { "SC-01": ["SC-01"], "SC-02": ["SC-02"], "SC-03": ["SC-02", "SC-03"], "SC-05": ["SC-05"], "SC-06": ["SC-05", "SC-06"],
+  const roots = { "SC-02": ["SC-02"], "SC-03": ["SC-02", "SC-03"], "SC-05": ["SC-05"], "SC-06": ["SC-05", "SC-06"],
 "SC-19": ["SC-02", "SC-19"], "SC-07": ["SC-05", "SC-06", "SC-07"], "SC-08": ["SC-05", "SC-06", "SC-07", "SC-08"], "SC-09": ["SC-09"] };
-  if (id === "SC-01") states["SC-01"] = "perm";
   if (id === "SC-07") { params.conv = "q15"; params.trip = "t1"; }
   if (id === "SC-08") params.memo = "conv";
   if (id === "SC-19") { params.memoId = null; states["SC-19"] = "new"; }

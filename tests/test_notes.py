@@ -163,3 +163,16 @@ def test_a_note_first_sent_without_a_heading_gets_one_later(aws, places):
     put_note(note_body(headingSample=None))
     result = put_note(note_body(updatedAt="2026-10-21T01:10:00.000Z"))
     assert answer(result)["headingDegrees"] == 0.0
+
+
+def test_a_note_keeps_the_apps_heading(aws, places):
+    # The sample says north; the app's own heading (adr/0013) is the one kept.
+    result = put_note(note_body(headingDegrees=270.0))
+    assert answer(result)["headingDegrees"] == 270.0
+    assert store.get_note(USER, RIDE, NOTE)["headingDegrees"] == 270.0
+
+
+def test_an_edited_note_keeps_the_apps_first_heading(aws, places):
+    put_note(note_body(headingDegrees=270.0))
+    result = put_note(note_body(text="直した", headingDegrees=90.0, updatedAt="2026-10-21T01:10:00.000Z"))
+    assert answer(result)["applied"] is True and answer(result)["headingDegrees"] == 270.0

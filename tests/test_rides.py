@@ -126,6 +126,8 @@ def test_a_body_that_is_not_json_is_400(aws):
     assert rides.handler(event, None)["statusCode"] == 400
     event["pathParameters"]["seq"] = "0"
     assert rides.handler(event, None)["statusCode"] == 400
+    # Refused before anything is written (Backend #13).
+    assert aws.table.scan()["Items"] == []
 
 
 def test_a_bad_ride_id_or_user_is_400(aws):

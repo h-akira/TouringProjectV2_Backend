@@ -34,6 +34,7 @@ class AskInput:
     conversation_id: Optional[str]
     volume_db: int = DEFAULT_VOLUME_DB
     ride_id: Optional[str] = None
+    heading: Optional[float] = None
 
 
 def _header(event: dict, name: str) -> Optional[str]:
@@ -71,6 +72,13 @@ def position(value: Any) -> Optional[dict]:
     return {"latitude": lat, "longitude": lon}
 
 
+def heading_value(value: Any) -> Optional[float]:
+    """The heading the app worked out from the ride's route, in degrees clockwise from north (adr/0013), or None
+    when it is missing or not in [0, 360) (the question still goes ahead without one)."""
+    number = finite_number(value)
+    return number if number is not None and 0 <= number < 360 else None
+
+
 def heading_sample(value: Any) -> Optional[dict]:
     """The older position the heading is taken from, or None when it is missing or broken."""
     point = position(value)
@@ -105,7 +113,8 @@ def pcm_audio(audio_b64: Any) -> bytes:
     if not isinstance(audio_b64, str):
         raise BadRequest("audio must be base64")
     try:
-        audio = base64.b64decode(audio_b64, validate=True)
+        # Line breaks and spaces are dropped first: some encoders wrap base64 at 76 characters (Backend #6).
+        audio = base64.b64decode("".join(audio_b64.split()), validate=True)
     except (binascii.Error, ValueError):
         raise BadRequest("audio must be base64") from None
     if not MIN_AUDIO_BYTES <= len(audio) <= MAX_AUDIO_BYTES or len(audio) % 2:
@@ -148,5 +157,6 @@ def parse_ask(event: dict) -> AskInput:
         raise BadRequest("rideId must be a lowercase UUID")
 
     return AskInput(
-        audio, text, position(data.get("location")), heading_sample(data.get("headingSample")), conversation_id, int(volume_db), ride_id
+        audio, text, position(data.get("location")), heading_sample(data.get("headingSample")), conversation_id, int(volume_db), ride_id,
+        heading_value(data.get("headingDegrees")),
     )

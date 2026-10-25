@@ -19,12 +19,14 @@ _RETRYABLE = "RetryableConflictException"
 def session_id(user: str, conversation_id: str) -> str:
     """The runtime session of one user's conversation. Another user sending the same conversationId gets a session
     of their own, so nobody reaches someone else's context by knowing the ID (Backend issue #4). 64 hex characters,
-    inside the runtime's 33-100."""
+    inside the 33-256 that InvokeAgentRuntime takes for runtimeSessionId (Backend #14)."""
     return hashlib.sha256(f"{user}:{conversation_id}".encode("utf-8")).hexdigest()
 
 
 class AgentError(RuntimeError):
-    """The agent did not produce an answer; reported as agent_failed."""
+    """The agent did not produce an answer; reported as agent_failed. Its text is a short code (the agent's error
+    code, an AWS error code or an exception's type name), never the agent's message, which may carry part of the
+    input and is logged as is (Backend #8)."""
 
 
 @dataclass
@@ -58,10 +60,10 @@ def parse_events(lines: Iterable[Any], clock: Callable[[], float] = time.time) -
         elif kind == "done":
             done = event
         elif kind == "error":
-            raise AgentError(f"{event.get('code')}: {event.get('message')}")
+            raise AgentError(str(event.get("code") or "agent_error"))
         elif kind is None and "error" in event:
             # The runtime's own error shape when the entrypoint raised.
-            raise AgentError(str(event["error"]))
+            raise AgentError(str(event.get("error_type") or "runtime_error"))
     if done is None or not str(done.get("answer", "")).strip():
         raise AgentError("no answer")
     return AgentReply(

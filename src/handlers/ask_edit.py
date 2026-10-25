@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from handlers.common import deleted, iso, log, no_content, parse_iso, response, utc_now
 from lib import address, offline, rides, store
-from lib.geo import heading_degrees
+from lib.geo import settled_heading
 from lib.request import BadRequest, user_name
 
 
@@ -52,8 +52,10 @@ def _offline(event: dict, user: str, ask_id: str) -> dict:
     else:
         heading = (stored or {}).get("headingDegrees")
         if heading is None:
-            heading = heading_degrees(unreached.location, unreached.heading_sample, parse_iso(unreached.asked_at))
-        location = unreached.location
+            heading = settled_heading(unreached.heading, unreached.location, unreached.heading_sample,
+                                      parse_iso(unreached.asked_at))
+        # Settled on the first PUT that has one, like the place and the heading (Backend #21).
+        location = (stored or {}).get("location") or unreached.location
         kept = {
             "userName": user,
             "rideId": unreached.ride_id,
@@ -64,7 +66,7 @@ def _offline(event: dict, user: str, ask_id: str) -> dict:
             # Settled on the first PUT, like a point memo's; a failed lookup is tried again.
             "address": (stored or {}).get("address") or (
                 address.describe_location(location["latitude"], location["longitude"]) if location else None),
-            "headingDegrees": round(heading, 1) if heading is not None else None,
+            "headingDegrees": heading,
             "savedAt": iso(utc_now()),
         }
         applied = store.put_offline_ask(user, ask_id, kept)

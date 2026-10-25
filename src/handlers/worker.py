@@ -12,7 +12,7 @@ from typing import Optional
 from handlers.common import iso, log, parse_iso, utc_now
 from lib import address, agent, clients, speech, store, transcribe
 from lib.agent import AgentError, AgentReply, session_id
-from lib.geo import heading_degrees
+from lib.geo import settled_heading
 from lib.prompt import agent_location, build_prompt
 from lib.request import DEFAULT_VOLUME_DB
 
@@ -96,12 +96,12 @@ def _run(user: str, ask_id: str, item: dict, steps: Steps) -> None:
 
     received_at = parse_iso(item["receivedAt"])
     location = item.get("location")
-    heading = heading_degrees(location, item.get("headingSample"), received_at)
+    heading = settled_heading(item.get("headingDegrees"), location, item.get("headingSample"), received_at)
     place = steps.describe_location(location["latitude"], location["longitude"]) if location else None
     elapsed = (received_at - parse_iso(item["conversationStartedAt"])).total_seconds() if item.get("conversationStartedAt") else None
     prompt = build_prompt(question, received_at, location, place, heading, elapsed)
     mark("factsAt")
-    facts = {"transcript": transcript, "address": place, "headingDegrees": round(heading, 1) if heading is not None else None}
+    facts = {"transcript": transcript, "address": place, "headingDegrees": heading}
 
     try:
         reply = steps.invoke_agent(prompt, agent_location(location, heading), session_id(user, item["conversationId"]))

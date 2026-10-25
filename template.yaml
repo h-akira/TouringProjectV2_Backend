@@ -7,16 +7,17 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues: [dev, prod]
+  # No defaults: each environment names its own parameters in samconfig.toml, so that a new environment cannot
+  # silently use another's (Backend #7).
   AgentRuntimeArn:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /trv2/dev/agent-runtime-arn
-    Description: Name of the SSM parameter (Tokyo) holding the agent runtime ARN; written by the Agent deploy.
+    Description: Name of the SSM parameter (Tokyo) holding the agent runtime ARN, /trv2/<env>/agent-runtime-arn; written by the Agent deploy.
   AgentRegion:
     Type: String
     Default: us-east-1
   ConversationResetParameter:
     Type: String
-    Default: /trv2/dev/conversation-reset-minutes
+    Description: Name of the SSM parameter (Tokyo) holding the conversation reset minutes, /trv2/<env>/conversation-reset-minutes.
   DailyQuota:
     Type: Number
     Default: 3000
