@@ -102,11 +102,13 @@ def ride_checks(api: str, key: str, ride_id: str) -> list[bool]:
 
 def note_checks(api: str, key: str, ride_id: str, note_id: str) -> list[bool]:
     results = []
-    note = {"at": minutes_ago(15), "location": TOKYO_STATION, "headingSample": {**SOUTH_60M, "at": minutes_ago(15)},
+    # The heading the app works out from the ride's route (adr/0013).
+    note = {"at": minutes_ago(15), "location": TOKYO_STATION, "headingDegrees": 270.0,
             "text": "smoke の地点メモ", "updatedAt": minutes_ago(15)}
     url = f"{api}/rides/{ride_id}/notes/{note_id}"
     status, body = request("PUT", url, key, USER, note)
-    results.append(check("note saved with its place", status == 200 and body.get("applied") is True and bool(body.get("address")),
+    ok = status == 200 and body.get("applied") is True and bool(body.get("address")) and body.get("headingDegrees") == 270.0
+    results.append(check("note saved with its place and the app's heading", ok,
                          f"{status} address={body.get('address')} heading={body.get('headingDegrees')}"))
     status, body = request("PUT", url, key, USER, {**note, "text": "older", "updatedAt": minutes_ago(20)})
     results.append(check("older note ignored", status == 200 and body.get("applied") is False and bool(body.get("address")), str(status)))
@@ -127,7 +129,9 @@ def memo_checks(api: str, key: str, ask_id: str) -> list[bool]:
 
 
 def transcription_check(api: str, key: str, audio_b64: str) -> bool:
-    status, accepted = request("POST", f"{api}/transcriptions", key, USER, {"audio": audio_b64})
+    # Wrapped at 76 characters, as some encoders do (Backend #6).
+    wrapped = "\n".join(audio_b64[i:i + 76] for i in range(0, len(audio_b64), 76))
+    status, accepted = request("POST", f"{api}/transcriptions", key, USER, {"audio": wrapped})
     if status != 202:
         return check("point memo voice transcribed", False, str(status))
     start = time.monotonic()
@@ -143,6 +147,7 @@ def transcription_check(api: str, key: str, audio_b64: str) -> bool:
 
 def offline_checks(api: str, key: str, ride_id: str, offline_id: str, taken_id: str) -> list[bool]:
     url = f"{api}/asks/{offline_id}/offline"
+    # The older form of the heading, as an app before adr/0013 left it unsent.
     unreached = {"askedAt": minutes_ago(12), "location": TOKYO_STATION, "headingSample": {**SOUTH_60M, "at": minutes_ago(12)},
                  "rideId": ride_id, "updatedAt": minutes_ago(12)}
     status, body = request("PUT", url, key, USER, unreached)
@@ -154,6 +159,9 @@ def offline_checks(api: str, key: str, ride_id: str, offline_id: str, taken_id: 
     results.append(check("memo on an unreached ask", status == 200 and body.get("applied") is True, str(status)))
     status, body = request("PUT", f"{api}/asks/{taken_id}/offline", key, USER, unreached)
     results.append(check("unreached ask over a taken ask is 409", status == 409 and body == {"error": "conflict"}, str(status)))
+    status, body = request("GET", f"{api}/asks/{offline_id}", key, USER)
+    results.append(check("polled unreached ask is offline", status == 200 and body.get("status") == "offline",
+                         f"{status} status={body.get('status')}"))
     return results
 
 
@@ -242,7 +250,7 @@ def main() -> int:
     results.extend(note_checks(api, key, ride_id, note_id))
 
     accepted, result, elapsed = ask_and_wait(
-        api, key, {"text": "富士山の高さは？", "location": TOKYO_STATION, "headingSample": sample(10), "rideId": ride_id}
+        api, key, {"text": "富士山の高さは？", "location": TOKYO_STATION, "headingDegrees": 123.4, "rideId": ride_id}
     )
     ok = result.get("status") == "completed" and bool(result.get("answer")) and len(result.get("audio", [])) == 1
     results.append(check("text question", ok, f"{elapsed:.1f}s answer={result.get('answer')} error={result.get('error')}"))
@@ -251,8 +259,8 @@ def main() -> int:
             audio_ok = res.status == 200 and res.headers.get("Content-Type") == "audio/mpeg" and len(res.read()) > 1000
         results.append(check("answer audio download", audio_ok))
     print("      timings:", json.dumps(result.get("timings"), ensure_ascii=False))
-    ok = bool(result.get("askedAt")) and bool(result.get("address")) and result.get("headingDegrees") is not None
-    results.append(check("ask has when, where and heading", ok,
+    ok = bool(result.get("askedAt")) and bool(result.get("address")) and result.get("headingDegrees") == 123.4
+    results.append(check("ask has when, where and the app's heading", ok,
                          f"askedAt={result.get('askedAt')} address={result.get('address')} heading={result.get('headingDegrees')}"))
     conversation_id = accepted.get("conversationId")
     expires = accepted.get("conversationExpiresAt")
