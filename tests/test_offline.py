@@ -152,3 +152,20 @@ def test_a_newer_version_keeps_the_apps_first_heading(aws, places):
     put_offline(offline_body(headingDegrees=270.0))
     result = put_offline(offline_body(headingDegrees=90.0, updatedAt=T2))
     assert answer(result)["applied"] is True and answer(result)["headingDegrees"] == 270.0
+
+
+def test_a_newer_version_keeps_the_first_position(aws, places):
+    # The position is settled on the first PUT, like the place and the heading (Backend #21).
+    put_offline(offline_body())
+    put_offline(offline_body(location=None, headingSample=None, updatedAt=T2))
+    assert store.get_ask(USER, ASK)["location"] == HERE
+    elsewhere = {"latitude": 35.0, "longitude": 139.0}
+    result = put_offline(offline_body(location=elsewhere, updatedAt="2026-10-22T01:20:00.000Z"))
+    assert answer(result)["applied"] is True and answer(result)["address"] == "神奈川県足柄下郡箱根町仙石原"
+    assert store.get_ask(USER, ASK)["location"] == HERE and places == [(HERE["latitude"], HERE["longitude"])]
+
+
+def test_a_position_given_later_is_taken_when_the_first_had_none(aws, places):
+    put_offline(offline_body(location=None, headingSample=None))
+    result = put_offline(offline_body(updatedAt=T2))
+    assert store.get_ask(USER, ASK)["location"] == HERE and answer(result)["address"] == "神奈川県足柄下郡箱根町仙石原"

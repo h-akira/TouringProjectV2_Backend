@@ -54,7 +54,8 @@ def _offline(event: dict, user: str, ask_id: str) -> dict:
         if heading is None:
             heading = settled_heading(unreached.heading, unreached.location, unreached.heading_sample,
                                       parse_iso(unreached.asked_at))
-        location = unreached.location
+        # Settled on the first PUT that has one, like the place and the heading (Backend #21).
+        location = (stored or {}).get("location") or unreached.location
         kept = {
             "userName": user,
             "rideId": unreached.ride_id,

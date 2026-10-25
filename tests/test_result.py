@@ -69,3 +69,10 @@ def test_a_failed_ask_without_an_address_or_heading_says_null(aws):
 def test_due_north_is_a_heading_not_null(aws):
     put(status="completed", answer="A", receivedAt="2026-10-16T03:00:00.000Z", headingDegrees=0.0)
     assert json.loads(call()["body"])["headingDegrees"] == 0
+
+
+def test_an_unreached_ask_is_reported_as_offline(aws):
+    # An ask that never reached the Backend is never processed, so it must not look as if it were (Backend #25).
+    put(status="offline", receivedAt="2026-10-16T03:00:00.000Z")
+    body = json.loads(call()["body"])
+    assert body["status"] == "offline" and body["answer"] is None and body["audio"] == []
