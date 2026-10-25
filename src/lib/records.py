@@ -8,6 +8,9 @@ from typing import Optional
 
 from lib.request import BadRequest
 
+# DynamoDB refuses a longer sort key in ExclusiveStartKey (Backend #22).
+MAX_SORT_KEY_BYTES = 1024
+
 # As GET /asks/{askId} answers, plus the unreached asks the app sent (slice 4 spec §4.4).
 _ASK_STATUS = {"pending": "processing", "processing": "processing", "completed": "completed", "failed": "failed",
                "offline": "offline"}
@@ -25,7 +28,8 @@ def decode_cursor(text: Optional[str]) -> Optional[str]:
         data = json.loads(base64.urlsafe_b64decode(text.encode("ascii") + b"=" * (-len(text) % 4)))
     except (ValueError, binascii.Error, UnicodeError):
         raise BadRequest("cursor must be one that GET /records returned") from None
-    if not isinstance(data, dict) or not isinstance(data.get("sk"), str) or not data["sk"]:
+    if not isinstance(data, dict) or not isinstance(data.get("sk"), str) or not data["sk"] \
+            or len(data["sk"].encode("utf-8")) > MAX_SORT_KEY_BYTES:
         raise BadRequest("cursor must be one that GET /records returned")
     return data["sk"]
 

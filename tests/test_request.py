@@ -60,6 +60,13 @@ def test_audio_length_and_alignment(audio):
         parse_ask(event({"audio": b64(audio)}))
 
 
+def test_audio_base64_with_line_breaks_is_read():
+    # Some encoders break base64 into lines of 76 characters (Backend #6).
+    text = b64(b"\x01\x02" * MIN_AUDIO_BYTES)
+    wrapped = "\n".join(text[i:i + 76] for i in range(0, len(text), 76)) + "\n"
+    assert parse_ask(event({"audio": wrapped})).audio == b"\x01\x02" * MIN_AUDIO_BYTES
+
+
 def test_audio_not_base64():
     with pytest.raises(BadRequest, match="base64"):
         parse_ask(event({"audio": "not base64!!"}))

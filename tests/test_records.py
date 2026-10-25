@@ -134,7 +134,10 @@ def test_a_cursor_never_reads_another_users_records(aws):
 
 
 @pytest.mark.parametrize("cursor", ["", "!!!", base64.urlsafe_b64encode(b"[1]").decode(),
-                                    base64.urlsafe_b64encode(b'{"sk": ""}').decode()])
+                                    base64.urlsafe_b64encode(b'{"sk": ""}').decode(),
+                                    # DynamoDB refuses a sort key over 1024 bytes as a start key (Backend #22).
+                                    base64.urlsafe_b64encode(json.dumps({"sk": "A" * 1025}).encode()).decode()],
+                         ids=["empty", "not base64", "not an object", "empty key", "key too long"])
 def test_a_bad_cursor_is_400(aws, cursor):
     result = read(cursor)
     assert result["statusCode"] == 400 and json.loads(result["body"])["error"] == "bad_request"

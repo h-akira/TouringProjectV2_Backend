@@ -113,7 +113,8 @@ def pcm_audio(audio_b64: Any) -> bytes:
     if not isinstance(audio_b64, str):
         raise BadRequest("audio must be base64")
     try:
-        audio = base64.b64decode(audio_b64, validate=True)
+        # Line breaks and spaces are dropped first: some encoders wrap base64 at 76 characters (Backend #6).
+        audio = base64.b64decode("".join(audio_b64.split()), validate=True)
     except (binascii.Error, ValueError):
         raise BadRequest("audio must be base64") from None
     if not MIN_AUDIO_BYTES <= len(audio) <= MAX_AUDIO_BYTES or len(audio) % 2:
