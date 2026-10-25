@@ -115,3 +115,15 @@ def test_an_ask_that_cannot_be_queued_is_503_and_leaves_no_ask_or_audio(aws, mon
     assert result["statusCode"] == 503 and json.loads(result["body"]) == {"error": "unavailable"}
     assert [i["sk"] for i in aws.table.scan()["Items"] if i["sk"].startswith("ASK#")] == []
     assert aws.s3.list_objects_v2(Bucket=aws.bucket).get("KeyCount") == 0
+
+
+def test_the_apps_heading_is_kept_with_the_ask(aws):
+    body = json.loads(call({"text": "右手の山は？", "location": {"latitude": 35.6812, "longitude": 139.7671},
+                            "headingDegrees": 45.5})["body"])
+    assert store.get_ask("rider01", body["askId"])["headingDegrees"] == 45.5
+
+
+def test_a_heading_out_of_range_is_not_kept(aws):
+    result = call({"text": "Q", "headingDegrees": 400})
+    assert result["statusCode"] == 202
+    assert "headingDegrees" not in store.get_ask("rider01", json.loads(result["body"])["askId"])

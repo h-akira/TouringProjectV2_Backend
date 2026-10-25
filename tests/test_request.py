@@ -116,3 +116,14 @@ def test_volume_choices(volume):
 def test_volume_bad(volume):
     with pytest.raises(BadRequest):
         parse_ask(event({"text": "Q", "volumeDb": volume}))
+
+
+@pytest.mark.parametrize("value, heading", [(0, 0.0), (90.5, 90.5), (359.9, 359.9)])
+def test_heading_degrees_in_range(value, heading):
+    assert parse_ask(event({"text": "Q", "headingDegrees": value})).heading == heading
+
+
+@pytest.mark.parametrize("value", [360, -0.1, 1e9, "90", True, None, [90]])
+def test_heading_degrees_out_of_range_is_dropped(value):
+    # Like a broken sample: the question still goes ahead, without a heading.
+    assert parse_ask(event({"text": "Q", "headingDegrees": value})).heading is None

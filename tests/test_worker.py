@@ -93,6 +93,22 @@ def test_agent_gets_facts_location_and_session(aws):
     assert location["headingDegrees"] == 0.0 and session == session_id(USER, CID)
 
 
+def test_the_apps_heading_wins_over_the_sample(aws):
+    # The sample says north; the app's own heading (adr/0013) is the one used.
+    put(aws, headingDegrees=90.0)
+    rec = Recorder()
+    worker.process(USER, ASK, rec.steps())
+    _, prompt, location, _ = next(c for c in rec.calls if c[0] == "agent")
+    assert "真北から90度" in prompt and location["headingDegrees"] == 90.0
+    assert store.get_ask(USER, ASK)["headingDegrees"] == 90.0
+
+
+def test_almost_north_is_kept_as_zero(aws):
+    put(aws, headingDegrees=359.96, headingSample=None)
+    worker.process(USER, ASK, Recorder().steps())
+    assert store.get_ask(USER, ASK)["headingDegrees"] == 0
+
+
 def test_text_question_skips_transcription(aws):
     put(aws, audio=False)
     rec = Recorder()

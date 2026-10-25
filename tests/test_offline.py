@@ -139,3 +139,16 @@ def test_a_bad_ask_id_is_400(aws, places):
 def test_a_broken_heading_sample_only_drops_the_heading(aws, places):
     result = put_offline(offline_body(headingSample={"latitude": "x"}))
     assert result["statusCode"] == 200 and answer(result)["headingDegrees"] is None
+
+
+def test_an_unreached_ask_keeps_the_apps_heading(aws, places):
+    # The sample says north; the app's own heading (adr/0013) is the one kept.
+    result = put_offline(offline_body(headingDegrees=270.0))
+    assert answer(result)["headingDegrees"] == 270.0
+    assert store.get_ask(USER, ASK)["headingDegrees"] == 270.0
+
+
+def test_a_newer_version_keeps_the_apps_first_heading(aws, places):
+    put_offline(offline_body(headingDegrees=270.0))
+    result = put_offline(offline_body(headingDegrees=90.0, updatedAt=T2))
+    assert answer(result)["applied"] is True and answer(result)["headingDegrees"] == 270.0

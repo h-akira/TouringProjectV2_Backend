@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from handlers.common import deleted, iso, log, no_content, parse_iso, response, utc_now
 from lib import address, notes, rides, store
-from lib.geo import heading_degrees
+from lib.geo import settled_heading
 from lib.request import BadRequest, user_name
 
 
@@ -65,7 +65,7 @@ def _note(event: dict, user: str, ride_id: str) -> dict:
         heading = (stored or {}).get("headingDegrees")
         if heading is None:
             # Settled on the first PUT that has one, like the place (slice 3 spec §6.2, Backend #17).
-            heading = heading_degrees(note.location, note.heading_sample, parse_iso(note.at))
+            heading = settled_heading(note.heading, note.location, note.heading_sample, parse_iso(note.at))
         kept = {
             "at": note.at,
             "location": note.location,
@@ -74,7 +74,7 @@ def _note(event: dict, user: str, ride_id: str) -> dict:
             # The position never changes, so the place is looked up once; a failed lookup is tried again (§6.2).
             "address": (stored or {}).get("address") or (
                 address.describe_location(note.location["latitude"], note.location["longitude"]) if note.location else None),
-            "headingDegrees": round(heading, 1) if heading is not None else None,
+            "headingDegrees": heading,
             "savedAt": iso(utc_now()),
         }
         applied = store.put_note(user, ride_id, note_id, kept)

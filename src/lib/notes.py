@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from lib.request import BadRequest, body_json, heading_sample, position
+from lib.request import BadRequest, body_json, heading_sample, heading_value, position
 from lib.rides import utc_time
 
 NOTE_TEXT_MAX = 2000
@@ -17,6 +17,7 @@ class NoteInput:
     heading_sample: Optional[dict]
     text: str
     updated_at: str
+    heading: Optional[float] = None
 
 
 def parse_note(event: dict) -> NoteInput:
@@ -33,4 +34,4 @@ def parse_note(event: dict) -> NoteInput:
     if not text or len(text) > NOTE_TEXT_MAX:
         raise BadRequest(f"text must be 1-{NOTE_TEXT_MAX} characters")
     return NoteInput(utc_time(data.get("at"), "at"), location, heading_sample(data.get("headingSample")), text,
-                     utc_time(data.get("updatedAt"), "updatedAt"))
+                     utc_time(data.get("updatedAt"), "updatedAt"), heading_value(data.get("headingDegrees")))

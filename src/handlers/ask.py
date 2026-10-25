@@ -43,6 +43,7 @@ def handler(event, context):
         "question": ask.text,
         "location": ask.location,
         "headingSample": ask.heading_sample,
+        "headingDegrees": ask.heading,
         "volumeDb": ask.volume_db,
         "rideId": ask.ride_id,
         "timings": {"receivedAt": iso(now)},

@@ -46,3 +46,21 @@ def test_heading_none_when_sample_is_stale_or_in_future(seconds_ago):
 
 def test_small_device_clock_skew_is_tolerated():
     assert geo.heading_degrees(HERE, sample(SOUTH_60M, -5), NOW) == pytest.approx(0, abs=0.5)
+
+
+def test_settled_heading_takes_the_apps_degrees():
+    # The app works the heading out from the ride's route (adr/0013); its sample is not used then.
+    assert geo.settled_heading(123.44, HERE, sample(SOUTH_60M, 10), NOW) == 123.4
+
+
+def test_settled_heading_falls_back_to_an_older_apps_sample():
+    assert geo.settled_heading(None, HERE, sample(SOUTH_60M, 10), NOW) == pytest.approx(0, abs=0.1)
+
+
+def test_settled_heading_reads_almost_north_as_zero():
+    # 359.96 rounds to 360.0, which is north (Backend #12).
+    assert geo.settled_heading(359.96, HERE, None, NOW) == 0.0
+
+
+def test_settled_heading_is_none_without_degrees_or_sample():
+    assert geo.settled_heading(None, HERE, None, NOW) is None
