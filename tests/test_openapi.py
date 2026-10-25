@@ -48,6 +48,20 @@ def test_the_ride_limits_match_the_validation():
     assert schemas["RouteChunk"]["properties"]["points"]["maxItems"] == rides.MAX_POINTS
 
 
+def test_the_ask_statuses_match_the_result():
+    from handlers import result
+    statuses = SPEC["components"]["schemas"]["AskResult"]["properties"]["status"]["enum"]
+    assert set(statuses) == set(result._STATUS.values())
+
+
+def test_the_heading_is_taken_on_every_path_that_takes_a_sample():
+    # adr/0013: the app sends the heading it worked out wherever it used to send a sample.
+    schemas = SPEC["components"]["schemas"]
+    for name in ("AskRequest", "NoteRequest", "OfflineAskRequest"):
+        properties = schemas[name]["properties"]
+        assert "headingSample" in properties and properties["headingDegrees"]["type"] == "number"
+
+
 def test_error_reasons_match_contract():
     reasons = SPEC["components"]["schemas"]["AskResult"]["properties"]["error"]["enum"]
     assert set(reasons) - {None} == {"no_speech", "transcribe_failed", "agent_failed", "tts_failed"}

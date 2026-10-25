@@ -493,7 +493,7 @@ components:
         audio:
           type: string
           format: byte
-          description: PCM（16kHz・モノラル・16bit リトルエンディアン）の base64。0.25〜60秒。
+          description: PCM（16kHz・モノラル・16bit リトルエンディアン）の base64（改行と空白は無視する）。0.25〜60秒。
         text:
           type: string
           minLength: 1
@@ -555,7 +555,8 @@ components:
           format: uuid
         status:
           type: string
-          enum: [processing, completed, failed]
+          enum: [processing, completed, failed, offline]
+          description: offline は質問できなかった地点（PUT /asks/{askId}/offline で置いたもの）。処理されないので、回答は来ない
         transcript:
           type: string
           nullable: true
@@ -712,7 +713,7 @@ components:
         audio:
           type: string
           format: byte
-          description: PCM（16kHz・モノラル・16bit リトルエンディアン）の base64。0.25〜60秒。文字にしたら消す
+          description: PCM（16kHz・モノラル・16bit リトルエンディアン）の base64（改行と空白は無視する）。0.25〜60秒。文字にしたら消す
     TranscriptionResult:
       type: object
       required: [transcriptionId, status, text, failure]
@@ -774,7 +775,7 @@ components:
           allOf:
             - $ref: "#/components/schemas/Point"
           nullable: true
-          description: 録音を終えたときの位置。まだ位置が無ければ null。不正な位置は 400
+          description: 録音を終えたときの位置。まだ位置が無ければ null。不正な位置は 400。最初に位置を受けたあとは、あとの版の位置を使わない（住所・方位と同じ）
         headingDegrees:
           type: number
           nullable: true
