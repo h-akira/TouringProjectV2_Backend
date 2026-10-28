@@ -146,5 +146,5 @@ flowchart LR
 
 ## 6. デプロイ
 
-- Agent → Backend の順にデプロイする（Backend が Agent の ARN を読むため）。どちらも CICD（非公開）が持つ仕組みで行う。
+- Agent → Backend の順にデプロイする（Backend が Agent の ARN を読むため）。CICD（非公開）が持つ仕組みで行う。この仕組みが無いあいだは、各ユニットの README の手順で手で行う。
 - Android は走行用のビルドを端末に入れる。手順は Android の README。
