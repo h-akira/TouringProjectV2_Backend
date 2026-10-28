@@ -44,7 +44,7 @@ def build_prompt(
     if heading is None:
         lines.append("進行方向: 不明（方角や左右には触れないこと）")
     else:
-        lines.append(f"進行方向: {compass(heading)}（真北から{round(heading)}度）")
+        lines.append(f"進行方向: {compass(heading)}（真北から{round(heading) % 360}度）")
         lines.append(f"ライダーから見て右手は{compass(heading + 90)}、左手は{compass(heading - 90)}の方角")
     return "\n".join(lines) + f"\n\n質問: {question}"
 

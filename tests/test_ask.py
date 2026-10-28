@@ -123,6 +123,13 @@ def test_the_apps_heading_is_kept_with_the_ask(aws):
     assert store.get_ask("rider01", body["askId"])["headingDegrees"] == 45.5
 
 
+def test_the_apps_heading_is_rounded_when_the_ask_is_taken(aws):
+    # An ask that fails before the agent keeps the heading it was taken with, so it is settled here (Backend #29).
+    for sent, kept in [(359.96, 0), (12.3456789, 12.3)]:
+        body = json.loads(call({"text": "Q", "headingDegrees": sent})["body"])
+        assert store.get_ask("rider01", body["askId"])["headingDegrees"] == kept
+
+
 def test_a_heading_out_of_range_is_not_kept(aws):
     result = call({"text": "Q", "headingDegrees": 400})
     assert result["statusCode"] == 202

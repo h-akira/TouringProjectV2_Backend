@@ -8,6 +8,7 @@ from datetime import timedelta
 
 from handlers.common import iso, log, response, utc_now
 from lib import clients, conversation, store
+from lib.geo import settled_heading
 from lib.request import BadRequest, parse_ask, user_name
 
 
@@ -43,7 +44,8 @@ def handler(event, context):
         "question": ask.text,
         "location": ask.location,
         "headingSample": ask.heading_sample,
-        "headingDegrees": ask.heading,
+        # Settled now: an ask that fails before the agent never gets the worker's settled heading (Backend #29).
+        "headingDegrees": settled_heading(ask.heading, None, None, now),
         "volumeDb": ask.volume_db,
         "rideId": ask.ride_id,
         "timings": {"receivedAt": iso(now)},
