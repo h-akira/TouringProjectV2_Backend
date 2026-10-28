@@ -20,6 +20,8 @@ _CANCELLED = "TransactionCanceledException"
 _CONFLICT = "TransactionConflictException"
 # A write that meets a transaction on the same item fails at once; botocore does not retry it (Backend #18).
 _CONFLICT_TRIES = 3
+# Reads of deletion marks left unprocessed are tried again up to this many reads in all (Backend #30).
+_MARK_READS = 5
 _sleep: Callable[[float], None] = time.sleep
 
 
@@ -61,19 +63,20 @@ def deleted_key(user: str, kind: str, record_id: str) -> dict:
 
 def has_deletion_mark(user: str, marks: list) -> bool:
     """Whether any of the (kind, id) marks exists, read consistently in one batch (Backend #24). Used before costly
-    work on a write that would be refused anyway; the write itself still checks the marks in its transaction."""
+    work on a write that would be refused anyway; the write itself still checks the marks in its transaction, so
+    marks still left unread after _MARK_READS reads count as none."""
     table = clients.table()
     keys = [deleted_key(user, kind, record_id) for kind, record_id in marks]
     request = {table.name: {"Keys": keys, "ConsistentRead": True, "ProjectionExpression": "pk"}} if keys else {}
-    attempt = 0
-    while request:
+    for attempt in range(_MARK_READS):
+        if not request:
+            break
         if attempt:
             _sleep(0.05 * 2 ** (attempt - 1))
         page = table.meta.client.batch_get_item(RequestItems=request)
         if page.get("Responses", {}).get(table.name):
             return True
         request = page.get("UnprocessedKeys") or {}
-        attempt += 1
     return False
 
 

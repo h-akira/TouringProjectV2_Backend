@@ -123,6 +123,22 @@ def test_the_apps_heading_is_kept_with_the_ask(aws):
     assert store.get_ask("rider01", body["askId"])["headingDegrees"] == 45.5
 
 
+def test_the_apps_heading_is_rounded_when_the_ask_is_taken(aws):
+    # An ask that fails before the agent keeps the heading it was taken with, so it is settled here (Backend #29).
+    for sent, kept in [(359.96, 0), (12.3456789, 12.3)]:
+        body = json.loads(call({"text": "Q", "headingDegrees": sent})["body"])
+        assert store.get_ask("rider01", body["askId"])["headingDegrees"] == kept
+
+
+def test_an_ask_with_only_a_sample_is_kept_without_a_heading_for_the_worker(aws):
+    # An older app's sample is left to the worker; rounding at the ask does not invent a heading (Backend #29).
+    sample = {"latitude": 35.6712, "longitude": 139.7671, "at": "2026-10-16T03:04:30.000Z"}
+    body = json.loads(call({"text": "Q", "location": {"latitude": 35.6812, "longitude": 139.7671},
+                            "headingSample": sample})["body"])
+    item = store.get_ask("rider01", body["askId"])
+    assert "headingDegrees" not in item and item["headingSample"]["latitude"] == 35.6712
+
+
 def test_a_heading_out_of_range_is_not_kept(aws):
     result = call({"text": "Q", "headingDegrees": 400})
     assert result["statusCode"] == 202

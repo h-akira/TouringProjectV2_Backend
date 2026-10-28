@@ -246,3 +246,17 @@ def test_marks_left_unread_are_read_again(aws, monkeypatch, no_wait):
     monkeypatch.setattr(client, "batch_get_item", unprocessed_once)
     assert store.has_deletion_mark(USER, [("note", "n1"), ("ride", "r1")]) is True
     assert len(no_wait) == 1
+
+
+def test_marks_left_unread_every_time_are_given_up_on(aws, monkeypatch, no_wait):
+    # A bounded wait instead of one until the Lambda times out; the write's transaction still checks (Backend #30).
+    client = clients.table().meta.client
+    calls = []
+
+    def always_unprocessed(**params):
+        calls.append(params)
+        return {"Responses": {}, "UnprocessedKeys": params["RequestItems"]}
+
+    monkeypatch.setattr(client, "batch_get_item", always_unprocessed)
+    assert store.has_deletion_mark(USER, [("note", "n1"), ("ride", "r1")]) is False
+    assert len(calls) == store._MARK_READS and len(no_wait) == store._MARK_READS - 1

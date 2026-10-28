@@ -25,6 +25,12 @@ def test_full_prompt():
     ]
 
 
+def test_a_heading_just_short_of_north_is_written_as_0_degrees():
+    # round() alone would write 360 for 359.5 and above (Backend #29).
+    text = prompt.build_prompt("Q", NOW, HERE, None, 359.6, None)
+    assert "進行方向: 北（真北から0度）" in text
+
+
 def test_unknowns_are_stated_not_guessed():
     text = prompt.build_prompt("Q", NOW, HERE, None, None, 30)
     assert "現在地の住所: 不明" in text

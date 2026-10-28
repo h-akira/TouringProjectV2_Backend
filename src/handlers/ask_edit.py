@@ -50,6 +50,8 @@ def _offline(event: dict, user: str, ask_id: str) -> dict:
     if stored is not None and stored["updatedAt"] >= unreached.updated_at:
         applied, kept = False, stored
     else:
+        # Taken from the first PUT that has a heading, apart from the position (Backend #31): a first PUT with a
+        # position but no heading keeps its position, and a later one gives the heading, as the place does.
         heading = (stored or {}).get("headingDegrees")
         if heading is None:
             heading = settled_heading(unreached.heading, unreached.location, unreached.heading_sample,
