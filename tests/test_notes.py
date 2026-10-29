@@ -4,7 +4,7 @@ import json
 import pytest
 
 from handlers import rides
-from lib import store
+from lib import address, store
 
 USER = "rider01"
 RIDE = "5c9a1f0e-2b3d-4e5f-8a6b-7c8d9e0f1a2b"
@@ -22,7 +22,7 @@ def places(monkeypatch):
         calls.append((lat, lon))
         return "東京都千代田区丸の内"
 
-    monkeypatch.setattr(rides.address, "describe_location", describe)
+    monkeypatch.setattr(address, "describe_location", describe)
     return calls
 
 
@@ -62,7 +62,7 @@ def test_an_edited_note_keeps_its_place_without_looking_it_up_again(aws, places)
 
 def test_a_place_that_could_not_be_found_is_looked_up_on_the_next_put(aws, monkeypatch):
     found = iter([None, "神奈川県足柄下郡箱根町仙石原"])
-    monkeypatch.setattr(rides.address, "describe_location", lambda lat, lon: next(found))
+    monkeypatch.setattr(address, "describe_location", lambda lat, lon: next(found))
     assert answer(put_note(note_body()))["address"] is None
     result = put_note(note_body(updatedAt="2026-10-21T01:10:00.000Z"))
     assert answer(result)["address"] == "神奈川県足柄下郡箱根町仙石原"
