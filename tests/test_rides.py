@@ -3,7 +3,7 @@ import json
 
 from handlers import rides
 from lib import store
-from lib.store import _from_item
+from lib.store._dynamo import _from_item
 
 USER = "rider01"
 RIDE = "5c9a1f0e-2b3d-4e5f-8a6b-7c8d9e0f1a2b"
