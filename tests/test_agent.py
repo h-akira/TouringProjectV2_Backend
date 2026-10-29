@@ -148,3 +148,29 @@ def test_invoke_sends_no_deadline_when_it_has_none():
     client = FakeClient([sse(DONE)])
     invoke("P", None, "s" * 36, client=client)
     assert "deadlineSeconds" not in json.loads(client.calls[0]["payload"])
+
+
+# Review of slice 6 plan 3: a stream that goes quiet must not outlast the deadline (the read timeout is only per read).
+class StalledBody:
+    def iter_lines(self):
+        import time
+
+        time.sleep(5)
+        return iter([])
+
+
+class StalledClient:
+    def invoke_agent_runtime(self, **kwargs):
+        return {"response": StalledBody()}
+
+
+def test_a_stalled_stream_is_given_up_at_the_deadline(monkeypatch):
+    import time
+
+    from lib import agent
+
+    monkeypatch.setattr(agent, "WATCHDOG_MARGIN_SECONDS", 0.0)
+    started = time.monotonic()
+    with pytest.raises(AgentError, match="timeout"):
+        invoke("P", None, "s" * 36, client=StalledClient(), deadline_seconds=0.1)
+    assert time.monotonic() - started < 2
