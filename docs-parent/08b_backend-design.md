@@ -75,6 +75,7 @@ flowchart LR
 - worker の各段の失敗は、質問の記録の失敗の理由（`transcribe_failed`・`agent_failed`・`tts_failed`・`no_speech`）にする。
 - worker が落ちたメッセージは SQS が送り直し、2回失敗したら DLQ に移す。
 - Agent の呼び出しは自動で送り直さない（同じ質問が会話に2回入るため）。
+- 質問は受け付けの締め切り（110秒後）まで。worker は文字起こしと Agent の呼び出しを残りの時間で包み、尽きたら `agent_failed` で終える（[adr/0014](../adr/0014-ask-time-budget-from-acceptance.md)）。
 
 ## 6. 設定とデプロイ
 
