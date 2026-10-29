@@ -4,6 +4,8 @@ from pathlib import Path
 import yaml
 from openapi_spec_validator import validate
 
+from lib import asks
+
 SPEC = yaml.safe_load((Path(__file__).parent.parent / "docs-parent" / "07a_openapi.yaml").read_text(encoding="utf-8"))
 
 
@@ -51,7 +53,7 @@ def test_the_ride_limits_match_the_validation():
 def test_the_ask_statuses_match_the_result():
     from handlers import result
     statuses = SPEC["components"]["schemas"]["AskResult"]["properties"]["status"]["enum"]
-    assert set(statuses) == set(result._STATUS.values())
+    assert set(statuses) == set(asks.STATUS.values())
 
 
 def test_the_heading_is_taken_on_every_path_that_takes_a_sample():
@@ -93,4 +95,4 @@ def test_the_records_schemas_name_exactly_what_the_handler_returns():
 def test_the_ask_record_statuses_match_the_handler():
     from lib import records
     statuses = SPEC["components"]["schemas"]["AskRecord"]["properties"]["status"]["enum"]
-    assert set(statuses) == set(records._ASK_STATUS.values())
+    assert set(statuses) == set(asks.STATUS.values())

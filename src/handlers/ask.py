@@ -7,8 +7,7 @@ import uuid
 from datetime import timedelta
 
 from handlers.common import iso, log, response, utc_now
-from lib import clients, conversation, store
-from lib.geo import settled_heading
+from lib import asks, clients, conversation, store
 from lib.request import BadRequest, parse_ask, user_name
 
 
@@ -32,24 +31,7 @@ def handler(event, context):
     expires_at = now + timedelta(minutes=conversation.reset_minutes())
     started_at = store.conversation_started_at(user, conversation_id, iso(now))
 
-    item = {
-        **store.ask_key(user, ask_id),
-        "askId": ask_id,
-        "userName": user,
-        "conversationId": conversation_id,
-        "conversationStartedAt": started_at,
-        "status": "pending",
-        "receivedAt": iso(now),
-        "inputType": "audio" if ask.audio is not None else "text",
-        "question": ask.text,
-        "location": ask.location,
-        "headingSample": ask.heading_sample,
-        # Settled now: an ask that fails before the agent never gets the worker's settled heading (Backend #29).
-        "headingDegrees": settled_heading(ask.heading, None, None, now),
-        "volumeDb": ask.volume_db,
-        "rideId": ask.ride_id,
-        "timings": {"receivedAt": iso(now)},
-    }
+    item = asks.new_ask(user, ask_id, ask, conversation_id, started_at, now)
     if ask.audio is not None:
         item["audioKey"] = f"audio/{ask_id}.pcm"
         clients.s3().put_object(

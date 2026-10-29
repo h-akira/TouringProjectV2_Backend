@@ -6,15 +6,11 @@ import binascii
 import json
 from typing import Optional
 
+from lib import asks
 from lib.request import BadRequest
 
 # DynamoDB refuses a longer sort key in ExclusiveStartKey (Backend #22).
 MAX_SORT_KEY_BYTES = 1024
-
-# As GET /asks/{askId} answers, plus the unreached asks the app sent (slice 4 spec §4.4).
-_ASK_STATUS = {"pending": "processing", "processing": "processing", "completed": "completed", "failed": "failed",
-               "offline": "offline"}
-
 
 def encode_cursor(sort_key: str) -> str:
     return base64.urlsafe_b64encode(json.dumps({"sk": sort_key}).encode("utf-8")).decode("ascii").rstrip("=")
@@ -42,7 +38,7 @@ def view(item: dict) -> Optional[dict]:
         return {"kind": "deleted", "target": item["kind"], "id": item["id"], "rideId": item.get("rideId"),
                 "deletedAt": item["deletedAt"]}
     if sort_key.startswith("ASK#"):
-        return _ask(item)
+        return asks.record_view(item)
     if not sort_key.startswith("RIDE#"):
         return None
     if "#ROUTE#" in sort_key:
@@ -64,34 +60,3 @@ def _segment(stored: dict) -> dict:
 def _point(stored: dict) -> dict:
     return {"t": stored["t"], "lat": stored["lat"], "lon": stored["lon"], "accuracy": stored.get("accuracy"),
             "segment": stored["segment"]}
-
-
-def _ask(item: dict) -> dict:
-    status = _ASK_STATUS.get(item.get("status"), "processing")
-    timings = item.get("timings") or {}
-    # An answer the rider could hear: completed, or text whose speech failed (read with the device's TTS).
-    answered = status == "completed" or (item.get("error") == "tts_failed" and bool(item.get("answer")))
-    conversation_id = item.get("conversationId")
-    return {
-        "kind": "ask",
-        "askId": item["askId"],
-        "status": status,
-        "askedAt": item.get("receivedAt"),
-        "question": item.get("question"),
-        "transcript": item.get("transcript"),
-        "answer": item.get("answer"),
-        "error": item.get("error"),
-        "answeredAt": (timings.get("synthesizedAt") or timings.get("agentDoneAt")) if answered else None,
-        "location": item.get("location"),
-        "address": item.get("address"),
-        "headingDegrees": item.get("headingDegrees"),
-        "inputType": item.get("inputType"),
-        "conversationId": conversation_id,
-        # The conversation breaks just before its first ask (US-C-03.004).
-        "newConversation": conversation_id is not None and item.get("conversationStartedAt") == item.get("receivedAt"),
-        "rideId": item.get("rideId"),
-        "memo": item.get("memo"),
-        "memoUpdatedAt": item.get("memoUpdatedAt"),
-        # Only an unreached ask carries the time the app changed it (slice 4 spec §6.1).
-        "updatedAt": item.get("updatedAt"),
-    }
