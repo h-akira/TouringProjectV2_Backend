@@ -3,15 +3,14 @@ PUT /asks/{askId}/offline: an ask that never reached the Backend, kept by the ap
 from __future__ import annotations
 
 from handlers.common import deleted, iso, log, no_content, parse_iso, response, utc_now
-from lib import address, offline, rides, store
-from lib.geo import settled_heading
+from lib import offline, placed, request, rides, store
 from lib.request import BadRequest, user_name
 
 
 def handler(event, context):
     try:
         user = user_name(event)
-        ask_id = rides.path_id(event, "askId")
+        ask_id = request.path_id(event, "askId")
         if event.get("httpMethod") == "DELETE":
             store.delete_ask(user, ask_id, iso(utc_now()))
             log({"event": "ask_deleted", "askId": ask_id})
@@ -50,25 +49,19 @@ def _offline(event: dict, user: str, ask_id: str) -> dict:
     if stored is not None and stored["updatedAt"] >= unreached.updated_at:
         applied, kept = False, stored
     else:
-        # Taken from the first PUT that has a heading, apart from the position (Backend #31): a first PUT with a
-        # position but no heading keeps its position, and a later one gives the heading, as the place does.
-        heading = (stored or {}).get("headingDegrees")
-        if heading is None:
-            heading = settled_heading(unreached.heading, unreached.location, unreached.heading_sample,
-                                      parse_iso(unreached.asked_at))
-        # Settled on the first PUT that has one, like the place and the heading (Backend #21).
-        location = (stored or {}).get("location") or unreached.location
+        # The heading, the position and the place are each taken from the first PUT that has one (Backend #21, #31): a
+        # first PUT with a position but no heading keeps its position, and a later one gives the heading.
+        got = placed.settle_first(stored, unreached.location, unreached.heading, unreached.heading_sample,
+                                  parse_iso(unreached.asked_at), keep_first_location=True)
         kept = {
             "userName": user,
             "rideId": unreached.ride_id,
             # Named as for the asks the Backend takes in, so that every ask reads back alike.
             "receivedAt": unreached.asked_at,
-            "location": location,
+            "location": got.location,
             "updatedAt": unreached.updated_at,
-            # Settled on the first PUT, like a point memo's; a failed lookup is tried again.
-            "address": (stored or {}).get("address") or (
-                address.describe_location(location["latitude"], location["longitude"]) if location else None),
-            "headingDegrees": heading,
+            "address": got.address,
+            "headingDegrees": got.heading,
             "savedAt": iso(utc_now()),
         }
         applied = store.put_offline_ask(user, ask_id, kept)

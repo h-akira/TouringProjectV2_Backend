@@ -4,7 +4,7 @@ import json
 import pytest
 
 from handlers import ask_edit, rides
-from lib import store
+from lib import address, store
 
 USER = "rider01"
 ASK = "11111111-1111-4111-8111-111111111111"
@@ -23,7 +23,7 @@ def places(monkeypatch):
         calls.append((lat, lon))
         return "神奈川県足柄下郡箱根町仙石原"
 
-    monkeypatch.setattr(ask_edit.address, "describe_location", describe)
+    monkeypatch.setattr(address, "describe_location", describe)
     return calls
 
 
@@ -79,7 +79,7 @@ def test_a_newer_version_keeps_the_memo_place_and_heading(aws, places):
 
 def test_a_place_that_could_not_be_found_is_looked_up_on_the_next_put(aws, monkeypatch):
     found = iter([None, "東京都千代田区丸の内"])
-    monkeypatch.setattr(ask_edit.address, "describe_location", lambda lat, lon: next(found))
+    monkeypatch.setattr(address, "describe_location", lambda lat, lon: next(found))
     assert answer(put_offline(offline_body()))["address"] is None
     assert answer(put_offline(offline_body(updatedAt=T2)))["address"] == "東京都千代田区丸の内"
 

@@ -3,10 +3,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any, Optional
 
-from lib.request import BadRequest, UUID_RE, body_json, finite_number
+from lib.request import BadRequest, body_json, finite_number, path_id, utc_time
 
 RIDE_NAME_MAX = 40
 STATUSES = ("recording", "paused", "ended")
@@ -27,20 +26,6 @@ class RideInput:
     memo: Optional[str] = None
 
 
-def utc_time(value: Any, field: str) -> str:
-    """A time with its time zone, normalised to UTC with milliseconds so that stored values compare as text."""
-    if not isinstance(value, str):
-        raise BadRequest(f"{field} must be a date-time with a time zone")
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        raise BadRequest(f"{field} must be a date-time with a time zone") from None
-    if parsed.tzinfo is None:
-        raise BadRequest(f"{field} must be a date-time with a time zone")
-    utc = parsed.astimezone(timezone.utc)
-    return utc.strftime("%Y-%m-%dT%H:%M:%S.") + f"{utc.microsecond // 1000:03d}Z"
-
-
 def memo_text(value: Any) -> Optional[str]:
     """A memo of up to MEMO_MAX characters (code points, counted after the surrounding blanks are dropped); null or
     blank is no memo (US-D-04.003, Backend #16)."""
@@ -55,14 +40,6 @@ def parse_ask_memo(event: dict) -> tuple:
     """(memo, updatedAt) for PUT /asks/{askId}/memo."""
     data = body_json(event)
     return memo_text(data.get("memo")), utc_time(data.get("updatedAt"), "updatedAt")
-
-
-def path_id(event: dict, name: str) -> str:
-    """A UUID from the path (rideId, noteId, askId); a bad one is the sender's mistake, so 400."""
-    value = (event.get("pathParameters") or {}).get(name) or ""
-    if not UUID_RE.match(value):
-        raise BadRequest(f"{name} must be a lowercase UUID")
-    return value
 
 
 def ride_id(event: dict) -> str:

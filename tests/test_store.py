@@ -102,7 +102,7 @@ def _cancelled(*codes):
 @pytest.fixture
 def no_wait(monkeypatch):
     waits = []
-    monkeypatch.setattr(store, "_sleep", waits.append)
+    monkeypatch.setattr(store._dynamo, "_sleep", waits.append)
     return waits
 
 

@@ -10,8 +10,8 @@ import time
 from collections.abc import Callable
 from typing import Optional
 
-from handlers.common import log
 from lib import clients
+from lib.common import log
 
 DEFAULT_MINUTES = 15
 MAX_MINUTES = 55

@@ -4,8 +4,7 @@ DELETE /rides/{rideId}/notes/{noteId} remove them and leave deletion marks (adr/
 from __future__ import annotations
 
 from handlers.common import deleted, iso, log, no_content, parse_iso, response, utc_now
-from lib import address, notes, rides, store
-from lib.geo import settled_heading
+from lib import notes, placed, request, rides, store
 from lib.request import BadRequest, user_name
 
 
@@ -53,7 +52,7 @@ def _route(event: dict, user: str, ride_id: str) -> dict:
 
 
 def _note(event: dict, user: str, ride_id: str) -> dict:
-    note_id = rides.path_id(event, "noteId")
+    note_id = request.path_id(event, "noteId")
     note = notes.parse_note(event)
     # A send arriving after a deletion is refused before the place is looked up (Backend #17).
     if store.has_deletion_mark(user, [("note", note_id), ("ride", ride_id)]):
@@ -62,19 +61,17 @@ def _note(event: dict, user: str, ride_id: str) -> dict:
     if stored is not None and stored["updatedAt"] >= note.updated_at:
         applied, kept = False, stored
     else:
-        heading = (stored or {}).get("headingDegrees")
-        if heading is None:
-            # Settled on the first PUT that has one, like the place (slice 3 spec §6.2, Backend #17).
-            heading = settled_heading(note.heading, note.location, note.heading_sample, parse_iso(note.at))
+        # The heading and the place are settled on the first PUT that has one (slice 3 spec §6.2, Backend #17). A
+        # point memo takes the position it is sent with; a stored copy is read eventually consistently (review R4-05).
+        got = placed.settle_first(stored, note.location, note.heading, note.heading_sample, parse_iso(note.at),
+                                  keep_first_location=False)
         kept = {
             "at": note.at,
-            "location": note.location,
+            "location": got.location,
             "text": note.text,
             "updatedAt": note.updated_at,
-            # The position never changes, so the place is looked up once; a failed lookup is tried again (§6.2).
-            "address": (stored or {}).get("address") or (
-                address.describe_location(note.location["latitude"], note.location["longitude"]) if note.location else None),
-            "headingDegrees": heading,
+            "address": got.address,
+            "headingDegrees": got.heading,
             "savedAt": iso(utc_now()),
         }
         applied = store.put_note(user, ride_id, note_id, kept)
@@ -88,7 +85,7 @@ def _note(event: dict, user: str, ride_id: str) -> dict:
 def _delete(event: dict, user: str, ride_id: str) -> dict:
     # Deleting twice, or deleting what never arrived, is the same as deleting once (slice 3 spec §6.2).
     if (event.get("pathParameters") or {}).get("noteId") is not None:
-        note_id = rides.path_id(event, "noteId")
+        note_id = request.path_id(event, "noteId")
         store.delete_note(user, ride_id, note_id, iso(utc_now()))
         log({"event": "note_deleted", "rideId": ride_id, "noteId": note_id})
         return no_content()

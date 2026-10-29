@@ -4,13 +4,10 @@ from __future__ import annotations
 import os
 
 from handlers.common import response
-from lib import clients, store
+from lib import asks, clients, store
 from lib.request import UUID_RE, BadRequest, user_name
 
 PRESIGN_SECONDS = 600
-# An unreached ask is never processed (slice 4 spec §4.4); it is reported as such (Backend #25).
-_STATUS = {"pending": "processing", "processing": "processing", "completed": "completed", "failed": "failed",
-           "offline": "offline"}
 
 
 def handler(event, context):
@@ -31,16 +28,4 @@ def handler(event, context):
             ExpiresIn=PRESIGN_SECONDS,
         )
         audio = [{"seq": 1, "url": url}]
-    return response(200, {
-        "askId": ask_id,
-        "status": _STATUS.get(item.get("status"), "processing"),
-        "transcript": item.get("transcript"),
-        "answer": item.get("answer"),
-        "audio": audio,
-        "error": item.get("error"),
-        "timings": item.get("timings", {}),
-        # What the device keeps with the ask (slice 2 spec §5.2, §6.1).
-        "askedAt": item.get("receivedAt"),
-        "address": item.get("address"),
-        "headingDegrees": item.get("headingDegrees"),
-    })
+    return response(200, asks.poll_view(item, ask_id, audio))

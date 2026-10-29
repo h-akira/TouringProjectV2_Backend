@@ -1,25 +1,9 @@
-"""Helpers shared by the Lambda handlers."""
+"""Helpers shared by the Lambda handlers: the shapes of their responses. Time and log helpers are in lib.common."""
 from __future__ import annotations
 
 import json
-import logging
-from datetime import datetime, timezone
 
-_log = logging.getLogger("trv2.backend")
-_log.setLevel(logging.INFO)
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def iso(dt: datetime) -> str:
-    """UTC, millisecond precision, trailing Z."""
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.") + f"{dt.astimezone(timezone.utc).microsecond // 1000:03d}Z"
-
-
-def parse_iso(text: str) -> datetime:
-    return datetime.fromisoformat(text.replace("Z", "+00:00")).astimezone(timezone.utc)
+from lib.common import iso, log, parse_iso, utc_now  # noqa: F401 - handlers import them from here
 
 
 def response(status: int, body: dict) -> dict:
@@ -37,8 +21,3 @@ def deleted() -> dict:
 
 def no_content() -> dict:
     return {"statusCode": 204, "headers": {}, "body": ""}
-
-
-def log(record: dict) -> None:
-    # One JSON line per event. Callers must not pass question text, answers or positions.
-    print(json.dumps(record, ensure_ascii=False))
