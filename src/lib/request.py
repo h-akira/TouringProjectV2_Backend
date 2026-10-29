@@ -7,8 +7,10 @@ import json
 import math
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Optional
+
+from lib.common import iso
 
 USER_NAME_RE = re.compile(r"^[a-z0-9]{3,20}$")
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
@@ -91,8 +93,28 @@ def heading_sample(value: Any) -> Optional[dict]:
         return None
     if parsed.tzinfo is None:
         return None
-    utc = parsed.astimezone(timezone.utc)
-    return {**point, "at": utc.strftime("%Y-%m-%dT%H:%M:%S.") + f"{utc.microsecond // 1000:03d}Z"}
+    return {**point, "at": iso(parsed)}
+
+
+def utc_time(value: Any, field: str) -> str:
+    """A time with its time zone, normalised to UTC with milliseconds so that stored values compare as text."""
+    if not isinstance(value, str):
+        raise BadRequest(f"{field} must be a date-time with a time zone")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        raise BadRequest(f"{field} must be a date-time with a time zone") from None
+    if parsed.tzinfo is None:
+        raise BadRequest(f"{field} must be a date-time with a time zone")
+    return iso(parsed)
+
+
+def path_id(event: dict, name: str) -> str:
+    """A UUID from the path (rideId, noteId, askId); a bad one is the sender's mistake, so 400."""
+    value = (event.get("pathParameters") or {}).get(name) or ""
+    if not UUID_RE.match(value):
+        raise BadRequest(f"{name} must be a lowercase UUID")
+    return value
 
 
 def body_json(event: dict) -> dict:

@@ -5,7 +5,7 @@ import math
 from datetime import datetime
 from typing import Optional
 
-from handlers.common import parse_iso
+from lib.common import parse_iso
 
 MIN_DISTANCE_METERS = 5.0  # below this, GPS noise dominates the bearing
 MAX_SAMPLE_AGE_SECONDS = 120  # an older sample says little about the current direction

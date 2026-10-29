@@ -3,7 +3,7 @@ PUT /asks/{askId}/offline: an ask that never reached the Backend, kept by the ap
 from __future__ import annotations
 
 from handlers.common import deleted, iso, log, no_content, parse_iso, response, utc_now
-from lib import address, offline, rides, store
+from lib import address, offline, request, rides, store
 from lib.geo import settled_heading
 from lib.request import BadRequest, user_name
 
@@ -11,7 +11,7 @@ from lib.request import BadRequest, user_name
 def handler(event, context):
     try:
         user = user_name(event)
-        ask_id = rides.path_id(event, "askId")
+        ask_id = request.path_id(event, "askId")
         if event.get("httpMethod") == "DELETE":
             store.delete_ask(user, ask_id, iso(utc_now()))
             log({"event": "ask_deleted", "askId": ask_id})

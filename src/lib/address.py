@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from handlers.common import log
 from lib import clients
+from lib.common import log
 
 
 def describe_location(latitude: float, longitude: float, client: Any = None) -> Optional[str]:

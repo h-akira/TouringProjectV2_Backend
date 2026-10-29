@@ -4,8 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from lib.request import BadRequest, body_json, heading_sample, heading_value, position
-from lib.rides import utc_time
+from lib.request import BadRequest, body_json, heading_sample, heading_value, position, utc_time
 
 NOTE_TEXT_MAX = 2000
 

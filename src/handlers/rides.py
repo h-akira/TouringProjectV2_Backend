@@ -4,7 +4,7 @@ DELETE /rides/{rideId}/notes/{noteId} remove them and leave deletion marks (adr/
 from __future__ import annotations
 
 from handlers.common import deleted, iso, log, no_content, parse_iso, response, utc_now
-from lib import address, notes, rides, store
+from lib import address, notes, request, rides, store
 from lib.geo import settled_heading
 from lib.request import BadRequest, user_name
 
@@ -53,7 +53,7 @@ def _route(event: dict, user: str, ride_id: str) -> dict:
 
 
 def _note(event: dict, user: str, ride_id: str) -> dict:
-    note_id = rides.path_id(event, "noteId")
+    note_id = request.path_id(event, "noteId")
     note = notes.parse_note(event)
     # A send arriving after a deletion is refused before the place is looked up (Backend #17).
     if store.has_deletion_mark(user, [("note", note_id), ("ride", ride_id)]):
@@ -88,7 +88,7 @@ def _note(event: dict, user: str, ride_id: str) -> dict:
 def _delete(event: dict, user: str, ride_id: str) -> dict:
     # Deleting twice, or deleting what never arrived, is the same as deleting once (slice 3 spec §6.2).
     if (event.get("pathParameters") or {}).get("noteId") is not None:
-        note_id = rides.path_id(event, "noteId")
+        note_id = request.path_id(event, "noteId")
         store.delete_note(user, ride_id, note_id, iso(utc_now()))
         log({"event": "note_deleted", "rideId": ride_id, "noteId": note_id})
         return no_content()
