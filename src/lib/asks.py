@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from lib import store
+from lib import budget, store
 from lib.common import iso
 from lib.geo import settled_heading
 from lib.request import AskInput
@@ -28,6 +28,8 @@ def new_ask(user: str, ask_id: str, ask: AskInput, conversation_id: str, started
         "conversationStartedAt": started_at,
         "status": "pending",
         "receivedAt": iso(now),
+        # The time the ask has to be answered by; the worker and the agent stop there (adr/0014).
+        "deadlineAt": iso(budget.deadline_for(now)),
         "inputType": "audio" if ask.audio is not None else "text",
         "question": ask.text,
         "location": ask.location,

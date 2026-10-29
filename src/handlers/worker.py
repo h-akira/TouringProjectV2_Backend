@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from handlers.common import iso, log, parse_iso, utc_now
-from lib import address, agent, clients, speech, store, transcribe
+from lib import address, agent, budget, clients, speech, store, transcribe
 from lib.agent import AgentError, AgentReply, session_id
 from lib.geo import settled_heading
 from lib.prompt import agent_location, build_prompt
@@ -21,12 +21,16 @@ from lib.request import DEFAULT_VOLUME_DB
 class Steps:
     transcribe: Callable[[bytes], str]
     describe_location: Callable[[float, float], Optional[str]]
-    invoke_agent: Callable[[str, Optional[dict], str], AgentReply]
+    invoke_agent: Callable[[str, Optional[dict], str, float], AgentReply]
     synthesize: Callable[[str, str, int], str]
     now: Callable[[], datetime]
 
 
-DEFAULT_STEPS = Steps(transcribe.transcribe_pcm, address.describe_location, agent.invoke, speech.synthesize, utc_now)
+def _invoke_agent(prompt: str, location: Optional[dict], session: str, seconds: float) -> AgentReply:
+    return agent.invoke(prompt, location, session, deadline_seconds=seconds)
+
+
+DEFAULT_STEPS = Steps(transcribe.transcribe_pcm, address.describe_location, _invoke_agent, speech.synthesize, utc_now)
 
 
 def _durations(timings: dict) -> dict:
@@ -50,24 +54,26 @@ def _take_audio(key: str) -> bytes:
             log({"event": "audio_delete_failed", "error": type(error).__name__})
 
 
-def process(user: str, ask_id: str, steps: Steps) -> None:
+def process(user: str, ask_id: str, steps: Steps, remaining_ms: Optional[Callable[[], int]] = None) -> None:
     item = store.claim_ask(user, ask_id)
     if item is None:
         log({"event": "ask_skipped", "askId": ask_id})
         return
     try:
-        _run(user, ask_id, item, steps)
+        _run(user, ask_id, item, steps, remaining_ms)
     except Exception as error:  # noqa: BLE001 - never leave a claimed ask in processing
         log({"event": "ask_crashed", "askId": ask_id, "error": type(error).__name__})
         store.update_ask(user, ask_id, {"status": "failed", "error": "agent_failed"})
 
 
-def _run(user: str, ask_id: str, item: dict, steps: Steps) -> None:
+def _run(user: str, ask_id: str, item: dict, steps: Steps, remaining_ms: Optional[Callable[[], int]] = None) -> None:
     timings = dict(item.get("timings") or {})
     outcome: dict = {}
 
-    def mark(name: str) -> None:
-        timings[name] = iso(steps.now())
+    def mark(name: str) -> datetime:
+        at = steps.now()
+        timings[name] = iso(at)
+        return at
 
     def finish(status: str, error: Optional[str] = None, **fields) -> None:
         outcome.update(fields)
@@ -100,11 +106,20 @@ def _run(user: str, ask_id: str, item: dict, steps: Steps) -> None:
     place = steps.describe_location(location["latitude"], location["longitude"]) if location else None
     elapsed = (received_at - parse_iso(item["conversationStartedAt"])).total_seconds() if item.get("conversationStartedAt") else None
     prompt = build_prompt(question, received_at, location, place, heading, elapsed)
-    mark("factsAt")
+    facts_at = mark("factsAt")
     facts = {"transcript": transcript, "address": place, "headingDegrees": heading}
 
+    # The ask has until its deadline (adr/0014); the agent is told how long it has, and is not called with none left.
+    deadline = parse_iso(item["deadlineAt"]) if item.get("deadlineAt") else budget.deadline_for(received_at)
+    seconds = budget.agent_seconds(deadline, facts_at, remaining_ms() if remaining_ms else None)
+    if seconds < budget.MIN_AGENT_SECONDS:
+        mark("agentDoneAt")
+        log({"event": "budget_exhausted", "askId": ask_id, "stage": "agent"})
+        finish("failed", "agent_failed", **facts)
+        return
+
     try:
-        reply = steps.invoke_agent(prompt, agent_location(location, heading), session_id(user, item["conversationId"]))
+        reply = steps.invoke_agent(prompt, agent_location(location, heading), session_id(user, item["conversationId"]), seconds)
     except Exception as error:  # noqa: BLE001 - AgentError or anything unexpected from the call
         mark("agentDoneAt")
         reason = str(error) if isinstance(error, AgentError) else type(error).__name__
@@ -150,4 +165,5 @@ def handler(event, context):
         if message.get("kind") == "transcription":
             process_transcription(message["userName"], message["transcriptionId"], DEFAULT_STEPS)
         else:
-            process(message["userName"], message["askId"], DEFAULT_STEPS)
+            process(message["userName"], message["askId"], DEFAULT_STEPS,
+                    getattr(context, "get_remaining_time_in_millis", None))

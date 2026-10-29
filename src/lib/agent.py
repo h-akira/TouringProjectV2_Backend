@@ -82,9 +82,15 @@ def invoke(
     client: Any = None,
     attempts: int = 3,
     sleep: Callable[[float], None] = time.sleep,
+    deadline_seconds: Optional[float] = None,
 ) -> AgentReply:
+    """deadline_seconds is how long the agent may take (adr/0014); it cuts the call there and says so with a
+    "timeout" error."""
     client = client or clients.agentcore()
-    payload = json.dumps({"prompt": prompt, "location": location}, ensure_ascii=False).encode("utf-8")
+    body: dict = {"prompt": prompt, "location": location}
+    if deadline_seconds is not None:
+        body["deadlineSeconds"] = deadline_seconds
+    payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
     for attempt in range(attempts):
         try:
             response = client.invoke_agent_runtime(

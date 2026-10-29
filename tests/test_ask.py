@@ -143,3 +143,13 @@ def test_a_heading_out_of_range_is_not_kept(aws):
     result = call({"text": "Q", "headingDegrees": 400})
     assert result["statusCode"] == 202
     assert "headingDegrees" not in store.get_ask("rider01", json.loads(result["body"])["askId"])
+
+
+def test_the_record_keeps_the_deadline_110_seconds_after_the_acceptance(aws):
+    from datetime import timedelta
+
+    from handlers.common import parse_iso
+
+    body = json.loads(call({"text": "富士山の高さは？"})["body"])
+    item = store.get_ask("rider01", body["askId"])
+    assert parse_iso(item["deadlineAt"]) - parse_iso(item["receivedAt"]) == timedelta(seconds=110)

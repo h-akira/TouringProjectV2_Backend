@@ -16,6 +16,7 @@ SOUTH = {"latitude": 35.68066, "longitude": 139.7671, "at": "2026-10-16T02:59:50
 class Recorder:
     def __init__(self, transcript="右手の山は？", answer="愛鷹山です。", agent_error=None, tts_error=None, stt_error=None):
         self.calls = []
+        self.deadlines = []
         self.transcript, self.answer = transcript, answer
         self.agent_error, self.tts_error, self.stt_error = agent_error, tts_error, stt_error
         self.clock = T0
@@ -34,8 +35,9 @@ class Recorder:
         self.calls.append(("address", lat, lon))
         return "東京都千代田区丸の内"
 
-    def invoke_agent(self, prompt, location, session_id):
+    def invoke_agent(self, prompt, location, session_id, deadline_seconds=None):
         self.calls.append(("agent", prompt, location, session_id))
+        self.deadlines.append(deadline_seconds)
         if self.agent_error:
             raise self.agent_error
         return AgentReply(answer=self.answer, usage={"inputTokens": 5}, model_id="m", tools=["nearby_places"], first_event_at=None)
@@ -219,10 +221,10 @@ def test_an_ask_deleted_while_it_is_answered_is_not_written_back(aws):
     rec = Recorder()
     agent = rec.invoke_agent
 
-    def delete_then_answer(prompt, location, session):
+    def delete_then_answer(prompt, location, session, deadline_seconds=None):
         # The rider deletes the ask while the agent is answering (slice 3 spec §6.3).
         aws.table.delete_item(Key=store.ask_key(USER, ASK))
-        return agent(prompt, location, session)
+        return agent(prompt, location, session, deadline_seconds)
 
     rec.invoke_agent = delete_then_answer
     worker.process(USER, ASK, rec.steps())
@@ -241,3 +243,52 @@ def test_an_ask_deleted_before_a_crash_is_not_written_back_as_failed(aws):
     rec.describe_location = crash
     worker.process(USER, ASK, rec.steps())
     assert store.get_ask(USER, ASK) is None
+
+
+# adr/0014: the ask has until its deadline, and the agent is told how long it has.
+def test_the_agent_is_told_how_long_it_has(aws):
+    put(aws)
+    rec = Recorder()
+    worker.process(USER, ASK, rec.steps())
+    # Accepted at T0, deadline T0 + 110 s; the fake clock has moved a few seconds by the time the agent is called.
+    assert rec.deadlines and 85 <= rec.deadlines[0] <= 100
+
+
+def test_a_deadline_on_the_record_is_the_one_that_counts(aws):
+    put(aws, receivedAt=iso(T0 - timedelta(seconds=500)), deadlineAt=iso(T0 + timedelta(seconds=60)))
+    rec = Recorder()
+    worker.process(USER, ASK, rec.steps())
+    assert 35 <= rec.deadlines[0] <= 50  # 60 s left less the 10 s for the speech, a few seconds gone
+
+
+def test_a_record_without_a_deadline_gets_one_from_its_acceptance(aws):
+    # An ask accepted before the deadline was kept: 110 s after its receipt, which was 20 s ago.
+    put(aws, receivedAt=iso(T0 - timedelta(seconds=20)))
+    rec = Recorder()
+    worker.process(USER, ASK, rec.steps())
+    assert 60 <= rec.deadlines[0] <= 80
+
+
+def test_an_ask_with_no_time_left_fails_without_calling_the_agent(aws):
+    put(aws, receivedAt=iso(T0 - timedelta(seconds=100)))
+    rec = Recorder()
+    worker.process(USER, ASK, rec.steps())
+    item = store.get_ask(USER, ASK)
+    assert "agent" not in kinds(rec) and "tts" not in kinds(rec)
+    assert item["status"] == "failed" and item["error"] == "agent_failed"
+
+
+def test_the_lambdas_own_time_can_be_what_runs_out(aws):
+    put(aws)
+    rec = Recorder()
+    worker.process(USER, ASK, rec.steps(), remaining_ms=lambda: 12_000)
+    item = store.get_ask(USER, ASK)
+    assert "agent" not in kinds(rec) and item["status"] == "failed" and item["error"] == "agent_failed"
+
+
+def test_the_agents_own_timeout_is_a_failed_ask(aws):
+    put(aws)
+    rec = Recorder(agent_error=AgentError("timeout"))
+    worker.process(USER, ASK, rec.steps())
+    item = store.get_ask(USER, ASK)
+    assert item["status"] == "failed" and item["error"] == "agent_failed"
