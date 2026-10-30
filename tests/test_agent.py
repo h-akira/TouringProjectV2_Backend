@@ -121,7 +121,8 @@ def test_agentcore_client_never_retries_on_its_own(monkeypatch):
     clients.reset()
     config = clients.agentcore().meta.config
     assert config.retries["total_max_attempts"] == 1
-    assert config.read_timeout <= 90
+    # One long read still fits the worker's 120 s Lambda (adr/0014).
+    assert config.read_timeout < 120
     clients.reset()
 
 
@@ -135,3 +136,41 @@ def test_the_session_belongs_to_the_user_and_the_conversation():
     assert mine != session_id("rider02", CONVERSATION)
     assert mine != CONVERSATION
     assert 33 <= len(mine) <= 100
+
+
+def test_invoke_sends_the_deadline_when_it_has_one():
+    client = FakeClient([sse(DONE)])
+    invoke("P", None, "s" * 36, client=client, deadline_seconds=84.5)
+    assert json.loads(client.calls[0]["payload"])["deadlineSeconds"] == 84.5
+
+
+def test_invoke_sends_no_deadline_when_it_has_none():
+    client = FakeClient([sse(DONE)])
+    invoke("P", None, "s" * 36, client=client)
+    assert "deadlineSeconds" not in json.loads(client.calls[0]["payload"])
+
+
+# Review of slice 6 plan 3: a stream that goes quiet must not outlast the deadline (the read timeout is only per read).
+class StalledBody:
+    def iter_lines(self):
+        import time
+
+        time.sleep(5)
+        return iter([])
+
+
+class StalledClient:
+    def invoke_agent_runtime(self, **kwargs):
+        return {"response": StalledBody()}
+
+
+def test_a_stalled_stream_is_given_up_at_the_deadline(monkeypatch):
+    import time
+
+    from lib import agent
+
+    monkeypatch.setattr(agent, "WATCHDOG_MARGIN_SECONDS", 0.0)
+    started = time.monotonic()
+    with pytest.raises(AgentError, match="timeout"):
+        invoke("P", None, "s" * 36, client=StalledClient(), deadline_seconds=0.1)
+    assert time.monotonic() - started < 2

@@ -6,6 +6,7 @@ import json
 import os
 import time
 from collections.abc import Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -14,6 +15,9 @@ from botocore.exceptions import BotoCoreError, ClientError
 from lib import clients
 
 _RETRYABLE = "RetryableConflictException"
+# How long past its own deadline the agent is waited for as a whole. The read timeout of the client is per read, so a
+# stream that goes quiet would otherwise outlast the Lambda (review of slice 6 plan 3).
+WATCHDOG_MARGIN_SECONDS = 5.0
 
 
 def session_id(user: str, conversation_id: str) -> str:
@@ -82,9 +86,37 @@ def invoke(
     client: Any = None,
     attempts: int = 3,
     sleep: Callable[[float], None] = time.sleep,
+    deadline_seconds: Optional[float] = None,
+) -> AgentReply:
+    """deadline_seconds is how long the agent may take (adr/0014); it cuts the call there and says so with a
+    "timeout" error. The call as a whole is also given up WATCHDOG_MARGIN_SECONDS past it, however the stream stalls
+    (AgentError "timeout"); the stalled read is left to end by itself."""
+    if deadline_seconds is None:
+        return _invoke(prompt, location, session_id, client, attempts, sleep, None)
+    pool = ThreadPoolExecutor(max_workers=1)
+    future = pool.submit(_invoke, prompt, location, session_id, client, attempts, sleep, deadline_seconds)
+    try:
+        return future.result(timeout=deadline_seconds + WATCHDOG_MARGIN_SECONDS)
+    except TimeoutError:
+        raise AgentError("timeout") from None
+    finally:
+        pool.shutdown(wait=False)
+
+
+def _invoke(
+    prompt: str,
+    location: Optional[dict],
+    session_id: str,
+    client: Any,
+    attempts: int,
+    sleep: Callable[[float], None],
+    deadline_seconds: Optional[float],
 ) -> AgentReply:
     client = client or clients.agentcore()
-    payload = json.dumps({"prompt": prompt, "location": location}, ensure_ascii=False).encode("utf-8")
+    body: dict = {"prompt": prompt, "location": location}
+    if deadline_seconds is not None:
+        body["deadlineSeconds"] = deadline_seconds
+    payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
     for attempt in range(attempts):
         try:
             response = client.invoke_agent_runtime(

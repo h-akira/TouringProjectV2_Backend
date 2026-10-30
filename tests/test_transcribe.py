@@ -13,3 +13,17 @@ def test_chunks_cover_the_audio():
     chunks = list(transcribe.chunks(audio))
     assert b"".join(chunks) == audio
     assert all(len(c) <= transcribe.CHUNK_BYTES for c in chunks)
+
+
+def test_a_transcription_that_takes_too_long_is_cut(monkeypatch):
+    import asyncio
+
+    import pytest
+
+    async def slow(audio):
+        await asyncio.sleep(5)
+        return "never"
+
+    monkeypatch.setattr(transcribe, "_transcribe", slow)
+    with pytest.raises(TimeoutError):
+        transcribe.transcribe_pcm(b"\x00\x00", timeout=0.05)

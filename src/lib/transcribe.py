@@ -9,6 +9,8 @@ from amazon_transcribe.client import TranscribeStreamingClient
 from amazon_transcribe.handlers import TranscriptResultStreamHandler
 from amazon_transcribe.model import TranscriptEvent
 
+from lib import budget
+
 CHUNK_BYTES = 8 * 1024
 SAMPLE_RATE = 16000
 
@@ -49,5 +51,6 @@ async def _transcribe(audio: bytes) -> str:
     return join_finals(collector.finals)
 
 
-def transcribe_pcm(audio: bytes) -> str:
-    return asyncio.run(_transcribe(audio))
+def transcribe_pcm(audio: bytes, timeout: float = budget.TRANSCRIBE_SECONDS) -> str:
+    """Raises TimeoutError when the transcription takes longer than timeout seconds (adr/0014)."""
+    return asyncio.run(asyncio.wait_for(_transcribe(audio), timeout))
