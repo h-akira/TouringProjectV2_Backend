@@ -38,7 +38,7 @@ flowchart LR
 3. 記録を「完了」か「失敗（理由つき）」にする。トークン数と使ったモデルも残す。
 4. `result` は記録を読み、完了なら音声の署名付き URL を付けて返す。
 
-地点メモの声（`transcriptions`）は同じ受け付けと worker を通り、文字起こしだけで終える。
+地点メモの声（`transcriptions`）は同じ受け付けと worker を通り、文字起こしだけで終える。SQS に積めなければ、依頼の記録と録音を消して 503 を返す。
 
 ## 3. 記録の置き方（DynamoDB）
 
@@ -74,6 +74,8 @@ flowchart LR
 - 入力の不正は 400 と理由。接続キーの誤りは API Gateway が 403 を返す。
 - worker の各段の失敗は、質問の記録の失敗の理由（`transcribe_failed`・`agent_failed`・`tts_failed`・`no_speech`）にする。
 - worker が落ちたメッセージは SQS が送り直し、2回失敗したら DLQ に移す。
+- 受け持ちを取った後で落ちた（時間切れ・メモリ切れ）質問と文字起こしは、送り直しで失敗にする（受け持ちの時刻が130秒より古いとき。再実行はしない）。
+- どの Lambda も DynamoDB の権限は使う操作だけに絞る（Scan は持たせない）。
 - Agent の呼び出しは自動で送り直さない（同じ質問が会話に2回入るため）。
 - 質問は受け付けの締め切り（110秒後）まで。worker は、文字起こしを30秒までに、Agent の呼び出しを締め切りまでの残り（Lambda の残り時間と音声の合成の余白を引いた秒数）に収め、残りが足りなければ Agent を呼ばずに `agent_failed` で終える。Agent の応答が途中で止まっても、その秒数の5秒後には待つのをやめて `agent_failed` で終える（[adr/0014](../adr/0014-ask-time-budget-from-acceptance.md)）。
 
