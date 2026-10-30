@@ -99,10 +99,19 @@ def _retrying_conflicts(write: Callable[[], Any]) -> Any:
 
 
 def mark_deleted(user: str, kind: str, record_id: str, deleted_at: str, ride_id: Optional[str] = None) -> None:
-    """Writes the deletion mark; marking again keeps one. Marks never expire (adr/0009)."""
+    """Writes the deletion mark unless one is there: marking again keeps the first, with its ride and its time
+    (07 UC-4: the same request, sent again, has the same result). Marks never expire (adr/0009)."""
     item = _to_item({**deleted_key(user, kind, record_id), "kind": kind, "id": record_id, "rideId": ride_id,
                      "deletedAt": deleted_at})
-    _retrying_conflicts(lambda: clients.table().put_item(Item=item))
+
+    def write() -> None:
+        try:
+            clients.table().put_item(Item=item, ConditionExpression="attribute_not_exists(pk)")
+        except ClientError as error:
+            if error.response["Error"]["Code"] != _CONDITION_FAILED:
+                raise
+
+    _retrying_conflicts(write)
 
 
 def _write_unless_deleted(write: dict, marks: list) -> bool:
