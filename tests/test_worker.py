@@ -276,6 +276,9 @@ def test_an_ask_with_no_time_left_fails_without_calling_the_agent(aws):
     item = store.get_ask(USER, ASK)
     assert "agent" not in kinds(rec) and "tts" not in kinds(rec)
     assert item["status"] == "failed" and item["error"] == "agent_failed"
+    assert item["transcript"] == "右手の山は？" and item["address"] == "東京都千代田区丸の内"
+    # The heading is settled after this stage, so only the raw sample is kept.
+    assert "headingDegrees" not in item and item["headingSample"] == SOUTH
 
 
 def test_the_lambdas_own_time_can_be_what_runs_out(aws):
@@ -286,12 +289,14 @@ def test_the_lambdas_own_time_can_be_what_runs_out(aws):
     assert "agent" not in kinds(rec) and item["status"] == "failed" and item["error"] == "agent_failed"
 
 
-def test_the_agents_own_timeout_is_a_failed_ask(aws):
+def test_the_agents_own_timeout_is_a_failed_ask_and_its_code_is_logged(aws, capsys):
     put(aws)
     rec = Recorder(agent_error=AgentError("timeout"))
     worker.process(USER, ASK, rec.steps())
     item = store.get_ask(USER, ASK)
     assert item["status"] == "failed" and item["error"] == "agent_failed"
+    logged = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")]
+    assert {"event": "agent_error", "askId": ASK, "error": "timeout"} in logged
 
 
 STALE = timedelta(seconds=budget.STALE_CLAIM_SECONDS)

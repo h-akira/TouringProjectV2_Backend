@@ -12,6 +12,7 @@ from lib.request import BadRequest
 # DynamoDB refuses a longer sort key in ExclusiveStartKey (Backend #22).
 MAX_SORT_KEY_BYTES = 1024
 
+
 def encode_cursor(sort_key: str) -> str:
     return base64.urlsafe_b64encode(json.dumps({"sk": sort_key}).encode("utf-8")).decode("ascii").rstrip("=")
 
