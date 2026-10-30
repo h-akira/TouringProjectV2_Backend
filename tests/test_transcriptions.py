@@ -107,3 +107,12 @@ def test_bad_audio_is_400_and_queues_nothing(aws):
         assert result["statusCode"] == 400 and json.loads(result["body"])["error"] == "bad_request"
     assert messages(aws) == [] and audio_keys(aws) == []
     assert post({"audio": base64.b64encode(AUDIO).decode()}, user="BAD")["statusCode"] == 400
+
+
+def test_a_stalled_transcription_is_failed_by_the_redelivery(aws):
+    transcription_id = accepted(aws)
+    # Taken long before the steps' clock (T0 + a few seconds): the worker that took it is gone.
+    assert store.claim_transcription(USER, transcription_id, "2026-10-16T02:50:00.000Z") is not None
+    worker.process_transcription(USER, transcription_id, Recorder().steps())
+    item = store.get_transcription(USER, transcription_id)
+    assert item["status"] == "failed" and item["failure"] == "transcribe_failed"

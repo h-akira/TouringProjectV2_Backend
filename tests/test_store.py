@@ -5,6 +5,7 @@ from botocore.exceptions import ClientError
 from lib import clients, store
 
 USER, ASK = "rider01", "11111111-1111-4111-8111-111111111111"
+NOW = "2026-10-16T03:00:00.000Z"
 
 
 def new_ask(**extra):
@@ -27,13 +28,13 @@ def test_get_missing_and_other_user(aws):
 
 def test_claim_only_once(aws):
     store.create_ask(new_ask())
-    first = store.claim_ask(USER, ASK)
-    assert first["status"] == "processing"
-    assert store.claim_ask(USER, ASK) is None
+    first = store.claim_ask(USER, ASK, NOW)
+    assert first["status"] == "processing" and first["claimedAt"] == NOW
+    assert store.claim_ask(USER, ASK, NOW) is None
 
 
 def test_claim_missing_is_none(aws):
-    assert store.claim_ask(USER, ASK) is None
+    assert store.claim_ask(USER, ASK, NOW) is None
 
 
 def test_update_sets_fields_and_skips_none(aws):

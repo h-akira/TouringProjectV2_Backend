@@ -36,3 +36,13 @@ def test_the_dev_deploy_names_the_dev_parameters():
     assert overrides["Environment"] == "dev"
     assert overrides["AgentRuntimeArn"] == "/trv2/dev/agent-runtime-arn"
     assert overrides["ConversationResetParameter"] == "/trv2/dev/conversation-reset-minutes"
+
+
+def test_the_stale_claim_time_fits_between_the_lambda_timeout_and_the_queue_visibility():
+    # A claim older than STALE_CLAIM_SECONDS belongs to a worker that is gone (its Lambda timed out), and the queue
+    # delivers again only after its visibility timeout.
+    from lib import budget
+    template = _template()["Resources"]
+    timeout = template["WorkerFunction"]["Properties"]["Timeout"]
+    visibility = template["AskQueue"]["Properties"]["VisibilityTimeout"]
+    assert timeout < budget.STALE_CLAIM_SECONDS < visibility

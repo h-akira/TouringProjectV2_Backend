@@ -6,7 +6,7 @@ import json
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from handlers.common import iso, log, parse_iso, utc_now
@@ -24,6 +24,10 @@ class Steps:
     invoke_agent: Callable[[str, Optional[dict], str, float], AgentReply]
     synthesize: Callable[[str, str, int], str]
     now: Callable[[], datetime]
+
+
+def _stale_before(steps: Steps) -> str:
+    return iso(steps.now() - timedelta(seconds=budget.STALE_CLAIM_SECONDS))
 
 
 def _invoke_agent(prompt: str, location: Optional[dict], session: str, seconds: float) -> AgentReply:
@@ -55,9 +59,13 @@ def _take_audio(key: str) -> bytes:
 
 
 def process(user: str, ask_id: str, steps: Steps, remaining_ms: Optional[Callable[[], int]] = None) -> None:
-    item = store.claim_ask(user, ask_id)
+    item = store.claim_ask(user, ask_id, iso(steps.now()))
     if item is None:
-        log({"event": "ask_skipped", "askId": ask_id})
+        # Delivered again after a worker took the ask and died (timed out, out of memory): no one will finish it.
+        if store.fail_stalled_ask(user, ask_id, _stale_before(steps)):
+            log({"event": "ask_recovered", "askId": ask_id})
+        else:
+            log({"event": "ask_skipped", "askId": ask_id})
         return
     try:
         _run(user, ask_id, item, steps, remaining_ms)
@@ -144,9 +152,12 @@ def _run(user: str, ask_id: str, item: dict, steps: Steps, remaining_ms: Optiona
 
 
 def process_transcription(user: str, transcription_id: str, steps: Steps) -> None:
-    item = store.claim_transcription(user, transcription_id)
+    item = store.claim_transcription(user, transcription_id, iso(steps.now()))
     if item is None:
-        log({"event": "transcription_skipped", "transcriptionId": transcription_id})
+        if store.fail_stalled_transcription(user, transcription_id, _stale_before(steps)):
+            log({"event": "transcription_recovered", "transcriptionId": transcription_id})
+        else:
+            log({"event": "transcription_skipped", "transcriptionId": transcription_id})
         return
     try:
         text = steps.transcribe(_take_audio(item["audioKey"]))

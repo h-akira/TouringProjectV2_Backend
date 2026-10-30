@@ -15,6 +15,9 @@ LAMBDA_MARGIN_SECONDS = 5
 MIN_AGENT_SECONDS = 5
 # The most a transcription may take; a memo or a question is at most a minute of speech.
 TRANSCRIBE_SECONDS = 30
+# A claim older than this belongs to a worker that is gone: longer than the worker Lambda's own time (120 s), shorter
+# than the queue's visibility timeout (180 s), after which the message is delivered again.
+STALE_CLAIM_SECONDS = 130
 # One read from the agent's stream. Longer than the agent may run, so that the agent's own timeout error is what the
 # worker reads, not a socket timeout.
 AGENT_READ_TIMEOUT_SECONDS = 105

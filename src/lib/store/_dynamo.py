@@ -133,14 +133,15 @@ def _write_unless_deleted(write: dict, marks: list) -> bool:
     return _retrying_conflicts(attempt)
 
 
-def _claim(key: dict) -> Optional[dict]:
+def _claim(key: dict, now_iso: str) -> Optional[dict]:
+    """pending -> processing, once, noting when (claimedAt). None when it is not pending or missing."""
     try:
         result = clients.table().update_item(
             Key=key,
-            UpdateExpression="SET #s = :processing",
+            UpdateExpression="SET #s = :processing, claimedAt = :now",
             ConditionExpression="#s = :pending",
             ExpressionAttributeNames={"#s": "status"},
-            ExpressionAttributeValues={":processing": "processing", ":pending": "pending"},
+            ExpressionAttributeValues={":processing": "processing", ":pending": "pending", ":now": now_iso},
             ReturnValues="ALL_NEW",
         )
     except ClientError as error:
@@ -148,3 +149,23 @@ def _claim(key: dict) -> Optional[dict]:
             return None
         raise
     return _from_item(result["Attributes"])
+
+
+def _fail_stalled(key: dict, fields: dict, stale_before_iso: str) -> bool:
+    """processing -> failed (with fields) when it was taken before stale_before_iso: the worker that took it is gone.
+    False when it is not processing, was taken since, or has no claim time (taken before claimedAt existed)."""
+    values = _to_item(fields)
+    expression, names, placeholders = _set_clause(values)
+    try:
+        clients.table().update_item(
+            Key=key,
+            UpdateExpression=expression,
+            ConditionExpression="#s = :processing AND attribute_exists(claimedAt) AND claimedAt < :stale",
+            ExpressionAttributeNames={**names, "#s": "status"},
+            ExpressionAttributeValues={**placeholders, ":processing": "processing", ":stale": stale_before_iso},
+        )
+    except ClientError as error:
+        if error.response["Error"]["Code"] == _CONDITION_FAILED:
+            return False
+        raise
+    return True
