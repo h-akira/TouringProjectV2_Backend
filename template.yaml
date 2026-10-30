@@ -298,7 +298,8 @@ Resources:
           POLLY_VOICE_ID: Kazuha
       Policies:
         - Statement:
-            # Claiming, writing the result and failing a stalled claim are all conditional updates (R4-12).
+            # Claiming, writing the result and failing a stalled claim are all UpdateItem (R4-12): the claim and the
+            # stalled-claim recovery are conditional, the result writes are not.
             - Effect: Allow
               Action: dynamodb:UpdateItem
               Resource: !GetAtt RecordsTable.Arn

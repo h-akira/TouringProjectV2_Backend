@@ -277,7 +277,8 @@ def test_an_ask_with_no_time_left_fails_without_calling_the_agent(aws):
     assert "agent" not in kinds(rec) and "tts" not in kinds(rec)
     assert item["status"] == "failed" and item["error"] == "agent_failed"
     assert item["transcript"] == "右手の山は？" and item["address"] == "東京都千代田区丸の内"
-    # The heading is settled after this stage, so only the raw sample is kept.
+    # settled_heading runs before this early return, but the sample is later than the receipt (beyond the allowed
+    # clock skew), so no heading can be worked out: headingDegrees is None and is not stored; the raw sample is.
     assert "headingDegrees" not in item and item["headingSample"] == SOUTH
 
 

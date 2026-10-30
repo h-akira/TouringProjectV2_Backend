@@ -33,7 +33,7 @@ def handler(event, context):
     store.create_ask(item)
     try:
         clients.sqs().send_message(QueueUrl=os.environ["QUEUE_URL"], MessageBody=json.dumps({"userName": user, "askId": ask_id}))
-    except Exception as error:  # noqa: BLE001 - reported to the app as 503, which it retries
+    except Exception as error:  # noqa: BLE001 - reported to the app as 503, which the app keeps as an unreached ask
         # No worker would ever take the ask, so it is not left pending; the app keeps an unreached ask instead (Backend #3).
         log({"event": "ask_queue_failed", "askId": ask_id, "error": type(error).__name__})
         store.discard_ask(user, ask_id)

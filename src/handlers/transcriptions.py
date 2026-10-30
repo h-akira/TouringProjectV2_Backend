@@ -42,7 +42,7 @@ def _accept(event: dict, user: str) -> dict:
     try:
         clients.sqs().send_message(QueueUrl=os.environ["QUEUE_URL"], MessageBody=json.dumps(
             {"kind": "transcription", "userName": user, "transcriptionId": transcription_id}))
-    except Exception as error:  # noqa: BLE001 - reported to the app as 503, which it retries
+    except Exception as error:  # noqa: BLE001 - reported to the app as 503; the app does not send a POST again on a 5xx
         # No worker would ever take it, so it is not left pending, and the recording is not kept (R4-04).
         log({"event": "transcription_queue_failed", "transcriptionId": transcription_id, "error": type(error).__name__})
         store.discard_transcription(user, transcription_id)

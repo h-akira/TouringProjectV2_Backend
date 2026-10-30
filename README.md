@@ -67,3 +67,4 @@ AWS_PROFILE=touring aws apigateway get-api-key --region ap-northeast-1 --api-key
 
 - 会話を区切る時間を変える: `aws ssm put-parameter --name /trv2/dev/conversation-reset-minutes --type String --overwrite --value <分>`（60秒以内に反映）
 - 段ごとの所要時間: CloudWatch の `/aws/lambda/lambda-trv2-dev-worker` の `ask_done` の行（`durationsMs`）
+- 受け取った質問や文字起こしの途中でワーカーが落ちたときは、次の配信で回復する。合図は `ask_recovered` / `transcription_recovered` のログ（タイムアウトでは DLQ に届かない）
