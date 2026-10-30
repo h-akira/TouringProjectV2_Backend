@@ -15,6 +15,11 @@ def create_transcription(item: dict) -> None:
     clients.table().put_item(Item=_to_item(item))
 
 
+def discard_transcription(user: str, transcription_id: str) -> None:
+    """Removes a transcription that was never queued: no worker would take it."""
+    clients.table().delete_item(Key=transcription_key(user, transcription_id))
+
+
 def claim_transcription(user: str, transcription_id: str, now_iso: str) -> Optional[dict]:
     """pending -> processing, once. None if already claimed or missing."""
     return _claim(transcription_key(user, transcription_id), now_iso)

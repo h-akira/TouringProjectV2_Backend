@@ -46,3 +46,27 @@ def test_the_stale_claim_time_fits_between_the_lambda_timeout_and_the_queue_visi
     timeout = template["WorkerFunction"]["Properties"]["Timeout"]
     visibility = template["AskQueue"]["Properties"]["VisibilityTimeout"]
     assert timeout < budget.STALE_CLAIM_SECONDS < visibility
+
+
+def _functions() -> dict:
+    return {name: r["Properties"] for name, r in _template()["Resources"].items() if r["Type"] == "AWS::Serverless::Function"}
+
+
+def _actions(properties: dict) -> set:
+    found = set()
+    for policy in properties.get("Policies", []):
+        statements = policy.get("Statement", []) if isinstance(policy, dict) else []
+        for statement in statements:
+            action = statement["Action"]
+            found |= set(action if isinstance(action, list) else [action])
+    return found
+
+
+def test_a_function_that_deletes_a_recording_may_delete_one():
+    # moto does not check IAM, so a missing s3:DeleteObject only shows after the deploy (R4-03, R4-04).
+    import re
+    for name, properties in _functions().items():
+        module = properties["Handler"].rsplit(".", 1)[0].replace(".", "/")
+        source = (ROOT / "src" / f"{module}.py").read_text(encoding="utf-8")
+        if re.search(r"\.delete_object\(|discard_audio\(", source):
+            assert "s3:DeleteObject" in _actions(properties), name

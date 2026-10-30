@@ -132,3 +132,15 @@ def test_a_transcription_is_read_consistently(aws, monkeypatch):
     monkeypatch.setattr(table, "get_item", spy)
     get(transcription_id)
     assert seen and all(p.get("ConsistentRead") is True for p in seen)
+
+
+def test_a_recording_that_cannot_be_queued_is_503_and_leaves_no_record_or_audio(aws, monkeypatch):
+    # Nothing would ever take the record, so it is not left pending, and the recording is not kept (R4-04).
+    def broken(**params):
+        raise RuntimeError("queue unavailable")
+
+    monkeypatch.setattr(transcriptions.clients.sqs(), "send_message", broken)
+    result = post({"audio": base64.b64encode(AUDIO).decode()})
+    assert result["statusCode"] == 503 and json.loads(result["body"]) == {"error": "unavailable"}
+    assert [i["sk"] for i in aws.table.scan()["Items"] if i["sk"].startswith("TRANSCRIPTION#")] == []
+    assert audio_keys(aws) == []

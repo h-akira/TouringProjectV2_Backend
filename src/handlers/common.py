@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import json
+import os
 
+from lib import clients
 from lib.common import iso, log, parse_iso, utc_now  # noqa: F401 - handlers import them from here
 
 
@@ -21,3 +23,11 @@ def deleted() -> dict:
 
 def no_content() -> dict:
     return {"statusCode": 204, "headers": {}, "body": ""}
+
+
+def discard_audio(key: str) -> None:
+    """Removes a recording that was not kept; the 1-day lifecycle rule would remove it anyway."""
+    try:
+        clients.s3().delete_object(Bucket=os.environ["AUDIO_BUCKET"], Key=key)
+    except Exception as error:  # noqa: BLE001
+        log({"event": "audio_delete_failed", "error": type(error).__name__})

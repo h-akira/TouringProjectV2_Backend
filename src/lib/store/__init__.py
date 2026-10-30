@@ -8,5 +8,5 @@ from lib.store.conversation_items import CONVERSATION_TTL_SECONDS, conversation_
 from lib.store.listing import query_records  # noqa: F401
 from lib.store.ride_items import (delete_note, delete_ride, get_note, note_key, put_note, put_ride,  # noqa: F401
                                   put_route_chunk, ride_key, route_key)
-from lib.store.transcription_items import (claim_transcription, create_transcription,  # noqa: F401
+from lib.store.transcription_items import (claim_transcription, create_transcription, discard_transcription,  # noqa: F401
                                             fail_stalled_transcription, finish_transcription, get_transcription, transcription_key)

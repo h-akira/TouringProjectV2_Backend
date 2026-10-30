@@ -378,6 +378,17 @@ paths:
           description: 接続キーが無効
         "429":
           description: 流量の制限
+        "503":
+          description: 受け付けたが処理に回せなかった。記録は残さない。App は通信の失敗と同じに扱う
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: string
+                    enum: [unavailable]
   /transcriptions/{transcriptionId}:
     get:
       summary: 文字起こしの状態と結果（受け付けてから1日で消える）

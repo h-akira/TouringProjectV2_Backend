@@ -1,6 +1,6 @@
 """PUT /rides/{rideId}, PUT /rides/{rideId}/route/{seq} and PUT /rides/{rideId}/notes/{noteId}: the app sends its
 rides, their routes and their point memos (07 UC-7, slice 2 spec §6.2, slice 3 spec §6.2). DELETE /rides/{rideId} and
-DELETE /rides/{rideId}/notes/{noteId} remove them and leave deletion marks (adr/0009). Reading them back comes later."""
+DELETE /rides/{rideId}/notes/{noteId} remove them and leave deletion marks (adr/0009). Reading them back is GET /records (handlers/records.py)."""
 from __future__ import annotations
 
 from handlers.common import deleted, iso, log, no_content, parse_iso, response, utc_now

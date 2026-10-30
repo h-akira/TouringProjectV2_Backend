@@ -83,7 +83,7 @@ Resources:
             QueueName: !GetAtt AskQueue.QueueName
         - Statement:
             - Effect: Allow
-              Action: s3:PutObject
+              Action: [s3:PutObject, s3:DeleteObject]
               Resource: !Sub ${AudioBucket.Arn}/audio/*
             - Effect: Allow
               Action: ssm:GetParameter
@@ -235,7 +235,7 @@ Resources:
             QueueName: !GetAtt AskQueue.QueueName
         - Statement:
             - Effect: Allow
-              Action: s3:PutObject
+              Action: [s3:PutObject, s3:DeleteObject]
               Resource: !Sub ${AudioBucket.Arn}/audio/*
       Events:
         Accept:
