@@ -16,7 +16,7 @@ def handler(event, context):
     except BadRequest as error:
         return response(400, {"error": "bad_request", "message": str(error)})
     ask_id = (event.get("pathParameters") or {}).get("askId") or ""
-    item = store.get_ask(user, ask_id) if UUID_RE.match(ask_id) else None
+    item = store.get_ask(user, ask_id, consistent=True) if UUID_RE.match(ask_id) else None
     if item is None:
         return response(404, {"error": "not_found"})
 

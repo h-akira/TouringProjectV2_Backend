@@ -50,10 +50,10 @@ def test_the_ride_limits_match_the_validation():
     assert schemas["RouteChunk"]["properties"]["points"]["maxItems"] == rides.MAX_POINTS
 
 
-def test_the_ask_statuses_match_the_result():
-    from handlers import result
-    statuses = SPEC["components"]["schemas"]["AskResult"]["properties"]["status"]["enum"]
-    assert set(statuses) == set(asks.STATUS.values())
+def test_the_ask_statuses_in_the_spec_match_the_handlers():
+    schemas = SPEC["components"]["schemas"]
+    for schema in ("AskResult", "AskRecord"):
+        assert set(schemas[schema]["properties"]["status"]["enum"]) == set(asks.STATUS.values()), schema
 
 
 def test_the_heading_is_taken_on_every_path_that_takes_a_sample():
@@ -90,9 +90,3 @@ def test_the_records_schemas_name_exactly_what_the_handler_returns():
         schema = schemas[mapping[kind].rsplit("/", 1)[1]]
         assert set(schema["properties"]) == set(view) and set(schema["required"]) == set(view)
         assert schema["properties"]["kind"]["enum"] == [kind]
-
-
-def test_the_ask_record_statuses_match_the_handler():
-    from lib import records
-    statuses = SPEC["components"]["schemas"]["AskRecord"]["properties"]["status"]["enum"]
-    assert set(statuses) == set(asks.STATUS.values())

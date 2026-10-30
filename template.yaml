@@ -77,13 +77,19 @@ Resources:
           QUEUE_URL: !Ref AskQueue
           CONVERSATION_RESET_PARAMETER: !Ref ConversationResetParameter
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref RecordsTable
         - SQSSendMessagePolicy:
             QueueName: !GetAtt AskQueue.QueueName
         - Statement:
+            # The conversation's first time (a conditional put, then a read), the ask, and its removal when it
+            # cannot be queued (R4-12: only what the code uses, and no Scan).
             - Effect: Allow
-              Action: s3:PutObject
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:DeleteItem
+              Resource: !GetAtt RecordsTable.Arn
+            - Effect: Allow
+              Action: [s3:PutObject, s3:DeleteObject]
               Resource: !Sub ${AudioBucket.Arn}/audio/*
             - Effect: Allow
               Action: ssm:GetParameter
@@ -102,9 +108,10 @@ Resources:
       FunctionName: !Sub lambda-trv2-${Environment}-result
       Handler: handlers.result.handler
       Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref RecordsTable
         - Statement:
+            - Effect: Allow
+              Action: dynamodb:GetItem
+              Resource: !GetAtt RecordsTable.Arn
             - Effect: Allow
               Action: s3:GetObject
               Resource: !Sub ${AudioBucket.Arn}/answers/*
@@ -125,10 +132,19 @@ Resources:
         Variables:
           GEO_REGION: !Ref AWS::Region
       Policies:
-        # Writes check deletion marks in a transaction; deleting a ride reads and removes its records (slice 3 spec §6).
-        - DynamoDBCrudPolicy:
-            TableName: !Ref RecordsTable
         - Statement:
+            # Writes check deletion marks in a transaction (Put and ConditionCheck); deleting a ride reads and
+            # removes its records in batches (slice 3 spec §6). Only what the code uses, and no Scan (R4-12).
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:DeleteItem
+                - dynamodb:Query
+                - dynamodb:BatchGetItem
+                - dynamodb:BatchWriteItem
+                - dynamodb:ConditionCheckItem
+              Resource: !GetAtt RecordsTable.Arn
             - Effect: Allow
               Action: geo-places:ReverseGeocode
               Resource: "*"
@@ -173,10 +189,19 @@ Resources:
         Variables:
           GEO_REGION: !Ref AWS::Region
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref RecordsTable
-        # An unreached ask gets its place on the first PUT, like a point memo (slice 4 spec §4.4).
         - Statement:
+            # The memo and the unreached ask are transactions (Update and ConditionCheck); deleting an ask reads it,
+            # marks it (a conditional put) and removes it. Only what the code uses, and no Scan (R4-12).
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:DeleteItem
+                - dynamodb:UpdateItem
+                - dynamodb:BatchGetItem
+                - dynamodb:ConditionCheckItem
+              Resource: !GetAtt RecordsTable.Arn
+            # An unreached ask gets its place on the first PUT, like a point memo (slice 4 spec §4.4).
             - Effect: Allow
               Action: geo-places:ReverseGeocode
               Resource: "*"
@@ -208,8 +233,10 @@ Resources:
       # A page is one query of up to 1 MB, turned into JSON.
       MemorySize: 512
       Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref RecordsTable
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:Query
+              Resource: !GetAtt RecordsTable.Arn
       Events:
         Records:
           Type: Api
@@ -229,13 +256,18 @@ Resources:
         Variables:
           QUEUE_URL: !Ref AskQueue
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref RecordsTable
         - SQSSendMessagePolicy:
             QueueName: !GetAtt AskQueue.QueueName
         - Statement:
+            # The transcription, its polling, and its removal when it cannot be queued (R4-12).
             - Effect: Allow
-              Action: s3:PutObject
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:DeleteItem
+              Resource: !GetAtt RecordsTable.Arn
+            - Effect: Allow
+              Action: [s3:PutObject, s3:DeleteObject]
               Resource: !Sub ${AudioBucket.Arn}/audio/*
       Events:
         Accept:
@@ -265,9 +297,12 @@ Resources:
           GEO_REGION: !Ref AWS::Region
           POLLY_VOICE_ID: Kazuha
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref RecordsTable
         - Statement:
+            # Claiming, writing the result and failing a stalled claim are all UpdateItem (R4-12): the claim and the
+            # stalled-claim recovery are conditional, the result writes are not.
+            - Effect: Allow
+              Action: dynamodb:UpdateItem
+              Resource: !GetAtt RecordsTable.Arn
             - Effect: Allow
               Action: [s3:GetObject, s3:DeleteObject]
               Resource: !Sub ${AudioBucket.Arn}/audio/*

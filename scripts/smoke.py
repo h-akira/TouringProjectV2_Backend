@@ -224,6 +224,23 @@ def delete_checks(api: str, key: str, ride_id: str, note_id: str, ask_id: str) -
     return results
 
 
+def single_delete_checks(api: str, key: str, ride_id: str, ask_id: str) -> list[bool]:
+    # Run while the ride is alive and after the records are counted. The ask is one of this run's asks (its deletion
+    # mark is still expected afterwards); the note is an extra one, so the later checks on the main note stay valid.
+    status, _ = request("DELETE", f"{api}/asks/{ask_id}", key, USER)
+    results = [check("ask deleted", status == 204, str(status))]
+    extra_note_id = str(uuid.uuid4())
+    url = f"{api}/rides/{ride_id}/notes/{extra_note_id}"
+    status, _ = request("PUT", url, key, USER, {"at": minutes_ago(14), "location": TOKYO_STATION, "text": "smoke の消す地点メモ",
+                                                "updatedAt": minutes_ago(14)})
+    if status != 200:
+        results.append(check("point memo deleted", False, f"setup PUT {status}"))
+        return results
+    status, _ = request("DELETE", url, key, USER)
+    results.append(check("point memo deleted", status == 204, str(status)))
+    return results
+
+
 def ask_and_wait(api: str, key: str, body: dict) -> tuple[dict, dict, float]:
     status, accepted = request("POST", f"{api}/asks", key, USER, body)
     if status != 202:
@@ -291,6 +308,7 @@ def main() -> int:
     results.append(records_check(api, key, ride_id, note_id, ask_ids, offline_id))
     status, _ = request("GET", f"{api}/records?cursor=nope", key, USER)
     results.append(check("bad records cursor is 400", status == 400, str(status)))
+    results.extend(single_delete_checks(api, key, ride_id, accepted3.get("askId")))
     results.extend(delete_checks(api, key, ride_id, note_id, accepted.get("askId")))
     results.append(records_after_delete_check(api, key, ride_id, note_id, ask_ids, offline_id))
 

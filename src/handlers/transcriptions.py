@@ -7,7 +7,7 @@ import os
 import uuid
 from datetime import timedelta
 
-from handlers.common import iso, log, response, utc_now
+from handlers.common import discard_audio, iso, log, response, utc_now
 from lib import clients, store
 from lib.request import UUID_RE, BadRequest, parse_transcription, user_name
 
@@ -39,15 +39,22 @@ def _accept(event: dict, user: str) -> dict:
         "audioKey": audio_key,
         "expiresAt": int((now + timedelta(seconds=KEEP_SECONDS)).timestamp()),
     })
-    clients.sqs().send_message(QueueUrl=os.environ["QUEUE_URL"], MessageBody=json.dumps(
-        {"kind": "transcription", "userName": user, "transcriptionId": transcription_id}))
+    try:
+        clients.sqs().send_message(QueueUrl=os.environ["QUEUE_URL"], MessageBody=json.dumps(
+            {"kind": "transcription", "userName": user, "transcriptionId": transcription_id}))
+    except Exception as error:  # noqa: BLE001 - reported to the app as 503; the app does not send a POST again on a 5xx
+        # No worker would ever take it, so it is not left pending, and the recording is not kept (R4-04).
+        log({"event": "transcription_queue_failed", "transcriptionId": transcription_id, "error": type(error).__name__})
+        store.discard_transcription(user, transcription_id)
+        discard_audio(audio_key)
+        return response(503, {"error": "unavailable"})
     log({"event": "transcription_accepted", "transcriptionId": transcription_id, "audioBytes": len(audio)})
     return response(202, {"transcriptionId": transcription_id})
 
 
 def _get(event: dict, user: str) -> dict:
     transcription_id = (event.get("pathParameters") or {}).get("transcriptionId") or ""
-    item = store.get_transcription(user, transcription_id) if UUID_RE.match(transcription_id) else None
+    item = store.get_transcription(user, transcription_id, consistent=True) if UUID_RE.match(transcription_id) else None
     if item is None:
         return response(404, {"error": "not_found"})
     return response(200, {"transcriptionId": transcription_id, "status": _STATUS.get(item.get("status"), "processing"),

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from handlers import worker
 from handlers.common import iso
-from lib import store
+from lib import budget, store
 from lib.agent import AgentError, AgentReply, parse_events, session_id
 
 USER, ASK, CID = "rider01", "11111111-1111-4111-8111-111111111111", "33333333-3333-4333-8333-333333333333"
@@ -276,6 +276,10 @@ def test_an_ask_with_no_time_left_fails_without_calling_the_agent(aws):
     item = store.get_ask(USER, ASK)
     assert "agent" not in kinds(rec) and "tts" not in kinds(rec)
     assert item["status"] == "failed" and item["error"] == "agent_failed"
+    assert item["transcript"] == "右手の山は？" and item["address"] == "東京都千代田区丸の内"
+    # settled_heading runs before this early return, but the sample is later than the receipt (beyond the allowed
+    # clock skew), so no heading can be worked out: headingDegrees is None and is not stored; the raw sample is.
+    assert "headingDegrees" not in item and item["headingSample"] == SOUTH
 
 
 def test_the_lambdas_own_time_can_be_what_runs_out(aws):
@@ -286,9 +290,60 @@ def test_the_lambdas_own_time_can_be_what_runs_out(aws):
     assert "agent" not in kinds(rec) and item["status"] == "failed" and item["error"] == "agent_failed"
 
 
-def test_the_agents_own_timeout_is_a_failed_ask(aws):
+def test_the_agents_own_timeout_is_a_failed_ask_and_its_code_is_logged(aws, capsys):
     put(aws)
     rec = Recorder(agent_error=AgentError("timeout"))
     worker.process(USER, ASK, rec.steps())
     item = store.get_ask(USER, ASK)
     assert item["status"] == "failed" and item["error"] == "agent_failed"
+    logged = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")]
+    assert {"event": "agent_error", "askId": ASK, "error": "timeout"} in logged
+
+
+STALE = timedelta(seconds=budget.STALE_CLAIM_SECONDS)
+
+
+def claimed_at(when):
+    """The ask as a worker that then died left it: processing, taken at when."""
+    assert store.claim_ask(USER, ASK, iso(when)) is not None
+
+
+def test_a_stalled_ask_is_failed_by_the_redelivery(aws):
+    put(aws)
+    claimed_at(T0 - STALE - timedelta(seconds=1))
+    rec = Recorder()
+    worker.process(USER, ASK, rec.steps())  # the clock of the steps is T0 + n seconds
+    item = store.get_ask(USER, ASK)
+    assert item["status"] == "failed" and item["error"] == "agent_failed"
+    assert kinds(rec) == []  # nothing is run again
+
+
+def test_a_claim_that_is_not_old_is_left_alone(aws):
+    put(aws)
+    claimed_at(T0 - timedelta(seconds=30))
+    rec = Recorder()
+    worker.process(USER, ASK, rec.steps())
+    assert store.get_ask(USER, ASK)["status"] == "processing" and kinds(rec) == []
+
+
+def test_a_processing_ask_without_a_claim_time_is_left_alone(aws):
+    # Taken by a worker of the version before claimedAt existed.
+    put(aws, status="processing")
+    worker.process(USER, ASK, Recorder().steps())
+    assert store.get_ask(USER, ASK)["status"] == "processing"
+
+
+def test_a_finished_ask_is_not_touched_by_a_redelivery(aws):
+    put(aws)
+    worker.process(USER, ASK, Recorder().steps())
+    before = store.get_ask(USER, ASK)
+    worker.process(USER, ASK, Recorder().steps())
+    assert store.get_ask(USER, ASK) == before
+
+
+def test_the_claim_time_is_not_shown_to_the_app(aws):
+    from handlers import result
+    put(aws)
+    claimed_at(T0)
+    body = json.loads(result.handler({"headers": {"x-user-name": USER}, "pathParameters": {"askId": ASK}}, None)["body"])
+    assert "claimedAt" not in json.dumps(body)

@@ -18,19 +18,21 @@ Android から質問（PCM の音声か文字）と位置と進行方位を受�
 ## 流れ
 
 1. `POST /asks` が入力を検証し、録音を S3（`audio/`・1日で消える）に置き、記録を `pending` で作り、SQS に積む。会話を区切る時刻を SSM `/trv2/dev/conversation-reset-minutes`（既定15・55以下）から求めて返す。SQS に積めなかったときは、記録と録音を消して 503 を返す（Android は通信の失敗として扱う）。会話の記録（`CONV#`）は TTL（`expiresAt`）で1日後に消える。
-2. 受け付けのときに、締め切り（110秒後）を記録に残す。worker が受け持ちを獲得し（条件付き書き込み）、文字起こし（ストリーミング）→ 住所（Location Service）・方位（Android の `headingDegrees`。無ければ古い形の `headingSample` から求める。0.1度に丸め、360は0）・日時 → Agent（締め切りまでの残りの秒数を渡す。us-east-1・`runtimeSessionId` はユーザー名と会話の識別子から作る SHA-256）→ Polly（Kazuha・DRC と +6dB）の順に処理し、記録を `completed` か `failed` にする。
+2. 受け付けのときに、締め切り（110秒後）を記録に残す。worker が受け持ちを獲得し（条件付き書き込み。取った時刻 `claimedAt` を残す。worker が落ちて SQS が送り直したとき、130秒（`budget.STALE_CLAIM_SECONDS`）より古い受け持ちは `agent_failed` で `failed` にし、再実行はしない。`claimedAt` の無い `processing` は触らない）、文字起こし（ストリーミング）→ 住所（Location Service）・方位（Android の `headingDegrees`。無ければ古い形の `headingSample` から求める。0.1度に丸め、360は0）・日時 → Agent（締め切りまでの残りの秒数を渡す。us-east-1・`runtimeSessionId` はユーザー名と会話の識別子から作る SHA-256）→ Polly（Kazuha・DRC と +6dB）の順に処理し、記録を `completed` か `failed` にする。
 3. Android は `GET /asks/{askId}` をポーリングし、回答の文と音声の署名付き URL（10分有効）を受け取る。質問できなかった地点を問い合わせると、状態は `offline` になる。
 4. 走行: Android は走行のメタ情報（走行のメモを含む）を `PUT /rides/{rideId}` で、ルートの点を300点までのかたまりにして `PUT /rides/{rideId}/route/{seq}` で置く。メタ情報は `updatedAt` が保存済みより新しいときだけ上書きする（古ければ `applied: false` の 200）。
 5. メモと地点メモ: 会話のメモは `PUT /asks/{askId}/memo`、地点メモは `PUT /rides/{rideId}/notes/{noteId}` で置く。どちらも `updatedAt` が新しいときだけ書く。地点メモの住所は最初に受けたときに質問と同じ求め方で決め、方位は最初に受けた Android の値を残して返す。
 6. 削除: `DELETE` を受けると、先に削除の跡（`DELETED#<ASK|RIDE|NOTE>#<id>`・期限なし）を書いてから消す。走行を消すと、ルート・地点メモ・その走行の質問も消し、地点メモと質問にも跡を残す。跡のある記録（と、跡のある走行の下の記録）への `PUT` は、書き込みと跡の確かめを1つのトランザクションにして、書かずに 410 を返す。
 7. 質問できなかった地点: Android は、Backend に届かなかった質問の日時・位置・方位を、自分で作った `askId` で `PUT /asks/{askId}/offline` に置く。`status: "offline"` の質問として、地点メモと同じく位置・住所・方位を最初に決め、あとの版では変えない。メモと削除は、ほかの質問と同じ経路を使う。
 8. 引き継ぎ: `GET /records` が、ユーザーのパーティションを強い一貫性でソートキーの順に読み、走行・ルート・地点メモ・質問・削除の跡を `kind` つきで返す。1ページは1回の問い合わせ（最大1MB）で、続きは `cursor` で読む（`cursor` には続きのソートキーだけを入れ、パーティションは `x-user-name` から作る）。
-9. 地点メモの声: `POST /transcriptions` が録音を S3 に置いて SQS に積み、worker が文字起こしだけを行う（AI と読み上げは呼ばない）。Android は `GET /transcriptions/{transcriptionId}` をポーリングする。記録は DynamoDB の TTL（`expiresAt`）で1日後に消える。
+9. 地点メモの声: `POST /transcriptions` が録音を S3 に置いて SQS に積み、worker が文字起こしだけを行う（AI と読み上げは呼ばない。受け持ちが130秒より古いまま送り直されたら `transcribe_failed` で `failed` にする）。SQS に積めなかったときは、`TRANSCRIPTION#` の記録と録音を消して 503 `{"error":"unavailable"}` を返す。Android は `GET /transcriptions/{transcriptionId}` をポーリングする。記録は DynamoDB の TTL（`expiresAt`）で1日後に消える。
 
 ## 大事な決まり
 
 - 記録に残す方位を決めるのは `lib/geo.py` の `settled_heading` だけ（Android の `headingDegrees` を先に、無ければ古い形の `headingSample` から）。
 - 削除の跡を見て書く書き込み（走行・ルート・地点メモ・会話のメモ・質問できなかった地点）は、書き込みと跡の確かめを1つのトランザクションにする（`store._write_unless_deleted`）。テーブルの resource の `meta.client` は値の型付けを自分で行うので、トランザクションには素の値を渡す（型付けした値を渡すと、取り消しの理由が `TypeError` になる）。走行の削除で子の記録を集める問い合わせは、一貫した読み出しにする（moto はいつも一貫しているので、テストでは引数を確かめる）。
+- どの Lambda も DynamoDB の権限は使う操作だけで、Scan は持たせない。`tests/test_template.py` の `EXPECTED_DYNAMODB` を、コードが使う操作を足したときに直す（moto は IAM を見ないので、足し忘れはデプロイ後に `AccessDenied` で出る。smoke で気づく）。
+- 同じものをもう一度削除しても、最初の削除の跡（時刻）を残す。
 - `GET /records` の項目は、値が無ければ `null` で返す（入れ子の区間の `endedAt`・点の `accuracy` も）。整数に等しい数は整数で返る（`5.0` が `5`）ので、Android は数を Double として読む。質問の `status` は `pending` と `processing` を見分けず `processing`。
 
 ## テスト
@@ -65,3 +67,4 @@ AWS_PROFILE=touring aws apigateway get-api-key --region ap-northeast-1 --api-key
 
 - 会話を区切る時間を変える: `aws ssm put-parameter --name /trv2/dev/conversation-reset-minutes --type String --overwrite --value <分>`（60秒以内に反映）
 - 段ごとの所要時間: CloudWatch の `/aws/lambda/lambda-trv2-dev-worker` の `ask_done` の行（`durationsMs`）
+- 受け取った質問や文字起こしの途中でワーカーが落ちたときは、次の配信で回復する。合図は `ask_recovered` / `transcription_recovered` のログ（タイムアウトでは DLQ に届かない）

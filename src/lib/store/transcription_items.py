@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Optional
 
 from lib import clients
-from lib.store._dynamo import _claim, _from_item, _set_clause, _to_item
+from lib.store._dynamo import _claim, _fail_stalled, _from_item, _set_clause, _to_item
 
 
 def transcription_key(user: str, transcription_id: str) -> dict:
@@ -15,9 +15,20 @@ def create_transcription(item: dict) -> None:
     clients.table().put_item(Item=_to_item(item))
 
 
-def claim_transcription(user: str, transcription_id: str) -> Optional[dict]:
+def discard_transcription(user: str, transcription_id: str) -> None:
+    """Removes a transcription that was never queued: no worker would take it."""
+    clients.table().delete_item(Key=transcription_key(user, transcription_id))
+
+
+def claim_transcription(user: str, transcription_id: str, now_iso: str) -> Optional[dict]:
     """pending -> processing, once. None if already claimed or missing."""
-    return _claim(transcription_key(user, transcription_id))
+    return _claim(transcription_key(user, transcription_id), now_iso)
+
+
+def fail_stalled_transcription(user: str, transcription_id: str, stale_before_iso: str) -> bool:
+    """Like fail_stalled_ask, for a transcription: failed as transcribe_failed."""
+    return _fail_stalled(transcription_key(user, transcription_id),
+                         {"status": "failed", "failure": "transcribe_failed"}, stale_before_iso)
 
 
 def finish_transcription(user: str, transcription_id: str, fields: dict) -> None:
@@ -31,6 +42,6 @@ def finish_transcription(user: str, transcription_id: str, fields: dict) -> None
     )
 
 
-def get_transcription(user: str, transcription_id: str) -> Optional[dict]:
-    item = clients.table().get_item(Key=transcription_key(user, transcription_id)).get("Item")
+def get_transcription(user: str, transcription_id: str, consistent: bool = False) -> Optional[dict]:
+    item = clients.table().get_item(Key=transcription_key(user, transcription_id), ConsistentRead=consistent).get("Item")
     return _from_item(item) if item else None

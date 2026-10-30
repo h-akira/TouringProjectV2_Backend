@@ -133,3 +133,25 @@ def test_deleting_a_ride_reads_its_records_with_consistent_reads(aws, monkeypatc
     a_ride_with_everything(aws)
     call(rides, "DELETE", rideId=RIDE)
     assert len(queries) == 2 and all(q.get("ConsistentRead") is True for q in queries)
+
+
+def mark_of(aws, kind, record_id):
+    return aws.table.get_item(Key=store.deleted_key(USER, kind, record_id))["Item"]
+
+
+def test_a_second_delete_keeps_the_first_mark(aws):
+    # A mark written again would lose the ride of the ask and move deletedAt later (R4-06).
+    store.mark_deleted(USER, "ask", ASK, "2026-10-16T03:00:00.000Z", ride_id=RIDE)
+    store.mark_deleted(USER, "ask", ASK, "2026-10-16T04:00:00.000Z", ride_id=None)
+    mark = mark_of(aws, "ask", ASK)
+    assert mark["deletedAt"] == "2026-10-16T03:00:00.000Z" and mark["rideId"] == RIDE
+
+
+def test_an_ask_deleted_after_its_ride_keeps_the_ride_in_its_mark(aws):
+    # The ride's deletion removes the ask and marks it with the ride; the app's own delete of that ask arrives later,
+    # finds nothing to read the ride from, and must not write the mark again.
+    call(rides, "PUT", body=ride_body(), rideId=RIDE)
+    ask(ASK, RIDE)
+    assert call(rides, "DELETE", rideId=RIDE)["statusCode"] == 204
+    assert call(ask_edit, "DELETE", askId=ASK)["statusCode"] == 204
+    assert mark_of(aws, "ask", ASK)["rideId"] == RIDE

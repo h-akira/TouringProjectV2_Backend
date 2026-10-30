@@ -6,7 +6,7 @@ from typing import Optional
 from botocore.exceptions import ClientError
 
 from lib import clients
-from lib.store._dynamo import (_CONDITION_FAILED, _claim, _from_item, _retrying_conflicts, _set_clause, _to_item,
+from lib.store._dynamo import (_CONDITION_FAILED, _claim, _fail_stalled, _from_item, _retrying_conflicts, _set_clause, _to_item,
                                _write_unless_deleted, deleted_key, mark_deleted)
 
 
@@ -23,9 +23,15 @@ def discard_ask(user: str, ask_id: str) -> None:
     clients.table().delete_item(Key=ask_key(user, ask_id))
 
 
-def claim_ask(user: str, ask_id: str) -> Optional[dict]:
+def claim_ask(user: str, ask_id: str, now_iso: str) -> Optional[dict]:
     """pending -> processing, once. None if already claimed or missing."""
-    return _claim(ask_key(user, ask_id))
+    return _claim(ask_key(user, ask_id), now_iso)
+
+
+def fail_stalled_ask(user: str, ask_id: str, stale_before_iso: str) -> bool:
+    """A worker took the ask before stale_before_iso and never finished: it is failed, as agent_failed. False when it
+    is not in that state."""
+    return _fail_stalled(ask_key(user, ask_id), {"status": "failed", "error": "agent_failed"}, stale_before_iso)
 
 
 def update_ask(user: str, ask_id: str, fields: dict) -> bool:

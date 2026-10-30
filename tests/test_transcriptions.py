@@ -107,3 +107,40 @@ def test_bad_audio_is_400_and_queues_nothing(aws):
         assert result["statusCode"] == 400 and json.loads(result["body"])["error"] == "bad_request"
     assert messages(aws) == [] and audio_keys(aws) == []
     assert post({"audio": base64.b64encode(AUDIO).decode()}, user="BAD")["statusCode"] == 400
+
+
+def test_a_stalled_transcription_is_failed_by_the_redelivery(aws):
+    transcription_id = accepted(aws)
+    # Taken long before the steps' clock (T0 + a few seconds): the worker that took it is gone.
+    assert store.claim_transcription(USER, transcription_id, "2026-10-16T02:50:00.000Z") is not None
+    worker.process_transcription(USER, transcription_id, Recorder().steps())
+    item = store.get_transcription(USER, transcription_id)
+    assert item["status"] == "failed" and item["failure"] == "transcribe_failed"
+
+
+def test_a_transcription_is_read_consistently(aws, monkeypatch):
+    from lib import clients
+    transcription_id = accepted(aws)
+    table = clients.table()
+    seen = []
+    original = table.get_item
+
+    def spy(**params):
+        seen.append(params)
+        return original(**params)
+
+    monkeypatch.setattr(table, "get_item", spy)
+    get(transcription_id)
+    assert seen and all(p.get("ConsistentRead") is True for p in seen)
+
+
+def test_a_recording_that_cannot_be_queued_is_503_and_leaves_no_record_or_audio(aws, monkeypatch):
+    # Nothing would ever take the record, so it is not left pending, and the recording is not kept (R4-04).
+    def broken(**params):
+        raise RuntimeError("queue unavailable")
+
+    monkeypatch.setattr(transcriptions.clients.sqs(), "send_message", broken)
+    result = post({"audio": base64.b64encode(AUDIO).decode()})
+    assert result["statusCode"] == 503 and json.loads(result["body"]) == {"error": "unavailable"}
+    assert [i["sk"] for i in aws.table.scan()["Items"] if i["sk"].startswith("TRANSCRIPTION#")] == []
+    assert audio_keys(aws) == []
