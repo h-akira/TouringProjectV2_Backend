@@ -37,6 +37,6 @@ def finish_transcription(user: str, transcription_id: str, fields: dict) -> None
     )
 
 
-def get_transcription(user: str, transcription_id: str) -> Optional[dict]:
-    item = clients.table().get_item(Key=transcription_key(user, transcription_id)).get("Item")
+def get_transcription(user: str, transcription_id: str, consistent: bool = False) -> Optional[dict]:
+    item = clients.table().get_item(Key=transcription_key(user, transcription_id), ConsistentRead=consistent).get("Item")
     return _from_item(item) if item else None

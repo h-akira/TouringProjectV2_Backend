@@ -176,3 +176,21 @@ def test_an_edited_note_keeps_the_apps_first_heading(aws, places):
     put_note(note_body(headingDegrees=270.0))
     result = put_note(note_body(text="直した", headingDegrees=90.0, updatedAt="2026-10-21T01:10:00.000Z"))
     assert answer(result)["applied"] is True and answer(result)["headingDegrees"] == 270.0
+
+
+def test_a_stored_point_memo_is_read_consistently(aws, places, monkeypatch):
+    # A second send right after the first must see it, or it would settle the place and heading again (R4-05).
+    from lib import clients
+    assert put_note(note_body())["statusCode"] == 200
+    table = clients.table()
+    seen = []
+    original = table.get_item
+
+    def spy(**params):
+        seen.append(params)
+        return original(**params)
+
+    monkeypatch.setattr(table, "get_item", spy)
+    put_note(note_body(updatedAt="2026-10-21T02:00:00.000Z"))
+    note_reads = [p for p in seen if "#NOTE#" in p["Key"]["sk"]]
+    assert note_reads and all(p.get("ConsistentRead") is True for p in note_reads)

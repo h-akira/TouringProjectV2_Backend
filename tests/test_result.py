@@ -76,3 +76,20 @@ def test_an_unreached_ask_is_reported_as_offline(aws):
     put(status="offline", receivedAt="2026-10-16T03:00:00.000Z")
     body = json.loads(call()["body"])
     assert body["status"] == "offline" and body["answer"] is None and body["audio"] == []
+
+
+def test_the_answer_is_read_consistently(aws, monkeypatch):
+    # The app asks about 1 s after the ask was written; a replica that has not got it yet would say 404 (R4-01).
+    from lib import clients
+    put(status="pending")
+    table = clients.table()
+    seen = []
+    original = table.get_item
+
+    def spy(**params):
+        seen.append(params)
+        return original(**params)
+
+    monkeypatch.setattr(table, "get_item", spy)
+    call()
+    assert seen and all(p.get("ConsistentRead") is True for p in seen)

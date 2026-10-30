@@ -116,3 +116,19 @@ def test_a_stalled_transcription_is_failed_by_the_redelivery(aws):
     worker.process_transcription(USER, transcription_id, Recorder().steps())
     item = store.get_transcription(USER, transcription_id)
     assert item["status"] == "failed" and item["failure"] == "transcribe_failed"
+
+
+def test_a_transcription_is_read_consistently(aws, monkeypatch):
+    from lib import clients
+    transcription_id = accepted(aws)
+    table = clients.table()
+    seen = []
+    original = table.get_item
+
+    def spy(**params):
+        seen.append(params)
+        return original(**params)
+
+    monkeypatch.setattr(table, "get_item", spy)
+    get(transcription_id)
+    assert seen and all(p.get("ConsistentRead") is True for p in seen)

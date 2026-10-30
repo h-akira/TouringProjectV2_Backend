@@ -47,7 +47,7 @@ def _accept(event: dict, user: str) -> dict:
 
 def _get(event: dict, user: str) -> dict:
     transcription_id = (event.get("pathParameters") or {}).get("transcriptionId") or ""
-    item = store.get_transcription(user, transcription_id) if UUID_RE.match(transcription_id) else None
+    item = store.get_transcription(user, transcription_id, consistent=True) if UUID_RE.match(transcription_id) else None
     if item is None:
         return response(404, {"error": "not_found"})
     return response(200, {"transcriptionId": transcription_id, "status": _STATUS.get(item.get("status"), "processing"),

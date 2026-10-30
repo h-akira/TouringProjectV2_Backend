@@ -57,12 +57,12 @@ def _note(event: dict, user: str, ride_id: str) -> dict:
     # A send arriving after a deletion is refused before the place is looked up (Backend #17).
     if store.has_deletion_mark(user, [("note", note_id), ("ride", ride_id)]):
         raise store.Deleted()
-    stored = store.get_note(user, ride_id, note_id)
+    stored = store.get_note(user, ride_id, note_id, consistent=True)
     if stored is not None and stored["updatedAt"] >= note.updated_at:
         applied, kept = False, stored
     else:
         # The heading and the place are settled on the first PUT that has one (slice 3 spec §6.2, Backend #17). A
-        # point memo takes the position it is sent with; a stored copy is read eventually consistently (review R4-05).
+        # point memo takes the position it is sent with; a stored copy is read consistently, as ask_edit does.
         got = placed.settle_first(stored, note.location, note.heading, note.heading_sample, parse_iso(note.at),
                                   keep_first_location=False)
         kept = {
@@ -76,7 +76,7 @@ def _note(event: dict, user: str, ride_id: str) -> dict:
         }
         applied = store.put_note(user, ride_id, note_id, kept)
         if not applied:
-            kept = store.get_note(user, ride_id, note_id) or kept
+            kept = store.get_note(user, ride_id, note_id, consistent=True) or kept
     log({"event": "note_saved", "rideId": ride_id, "noteId": note_id, "applied": applied, "hasPlace": kept.get("address") is not None})
     return response(200, {"noteId": note_id, "applied": applied, "address": kept.get("address"),
                           "headingDegrees": kept.get("headingDegrees")})

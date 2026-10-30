@@ -21,8 +21,8 @@ def note_key(user: str, ride_id: str, note_id: str) -> dict:
     return {"pk": f"USER#{user}", "sk": f"RIDE#{ride_id}#NOTE#{note_id}"}
 
 
-def get_note(user: str, ride_id: str, note_id: str) -> Optional[dict]:
-    item = clients.table().get_item(Key=note_key(user, ride_id, note_id)).get("Item")
+def get_note(user: str, ride_id: str, note_id: str, consistent: bool = False) -> Optional[dict]:
+    item = clients.table().get_item(Key=note_key(user, ride_id, note_id), ConsistentRead=consistent).get("Item")
     return _from_item(item) if item else None
 
 
