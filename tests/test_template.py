@@ -70,3 +70,30 @@ def test_a_function_that_deletes_a_recording_may_delete_one():
         source = (ROOT / "src" / f"{module}.py").read_text(encoding="utf-8")
         if re.search(r"\.delete_object\(|discard_audio\(", source):
             assert "s3:DeleteObject" in _actions(properties), name
+
+
+# The DynamoDB operations each function's code can reach. A transaction needs the operation of each item in it
+# (Put -> PutItem, Update -> UpdateItem, ConditionCheck -> ConditionCheckItem); moto does not check IAM (R4-12).
+EXPECTED_DYNAMODB = {
+    "AskFunction": {"GetItem", "PutItem", "DeleteItem"},
+    "ResultFunction": {"GetItem"},
+    "RidesFunction": {"GetItem", "PutItem", "DeleteItem", "Query", "BatchGetItem", "BatchWriteItem", "ConditionCheckItem"},
+    "AskEditFunction": {"GetItem", "PutItem", "DeleteItem", "UpdateItem", "BatchGetItem", "ConditionCheckItem"},
+    "RecordsFunction": {"Query"},
+    "TranscriptionsFunction": {"GetItem", "PutItem", "DeleteItem"},
+    "WorkerFunction": {"UpdateItem"},
+}
+
+
+def test_no_function_uses_the_broad_dynamodb_policy_templates():
+    # SAM expands DynamoDBCrudPolicy and DynamoDBReadPolicy with Scan and more (R4-12).
+    for name, properties in _functions().items():
+        for policy in properties.get("Policies", []):
+            assert not (isinstance(policy, dict) and {"DynamoDBCrudPolicy", "DynamoDBReadPolicy"} & set(policy)), name
+
+
+def test_each_function_may_use_the_dynamodb_operations_it_uses_and_no_scan():
+    for name, expected in EXPECTED_DYNAMODB.items():
+        granted = {a.split(":", 1)[1] for a in _actions(_functions()[name]) if a.startswith("dynamodb:")}
+        assert granted == expected, name
+    assert all("dynamodb:Scan" not in _actions(p) for p in _functions().values())
